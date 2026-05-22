@@ -43,7 +43,7 @@ npm run build
 
 ## Deployment
 
-Deployed on Vercel at https://micro-habits-zeta.vercel.app
+Deployed on Vercel at https://loop-365.vercel.app
 
 ```bash
 # Deploy to production
