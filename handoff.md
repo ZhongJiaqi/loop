@@ -200,6 +200,39 @@ prod alias 切到 commit `536a6f1`（revert 后等价 b688016 — 12 个 fixes �
 
 ---
 
+## 6.-1 本次会话（2026-05-22）—— History 日历加"那天干了啥"明细
+
+**用户痛点**：History 日历只能看到"那天有没有完成"（绿色实心圆 / 灰色小点），看不到具体做了哪些 habit / affirmation。
+
+**最终方案**：bottom sheet 抽屉模式（与微信状态历史思路一致）。点日历某天 → 从屏幕底部升起抽屉显示明细，**保留日历 + Stats + Weekly + Hall 的主页布局不变**。
+
+**设计决策**（用户在 Plan 阶段拍板）：
+1. 进入 History 概览在前，不主动弹 sheet（贴 Becoming "克制 / 仪式感" 调性）
+2. 日历恢复 partial 完成的灰色小圆点（部分完成 vs 完全无任务必须可分辨）
+3. 点"无任何任务"的空白天 = 无响应（disabled 按钮，避免空 sheet）
+
+**关键工程问题 + 修复**：
+- **现象**：用户在 History 顶部点日历，看不到抽屉，必须先滚到页面底部再点才能看到
+- **根因**：App.tsx 的 tab 容器 `<motion.div>` 同时带 `y` 偏移 + `filter: blur(...)`。CSS 规范里 `transform / filter` 任一存在，该元素就成为 `position: fixed` 后代的 **containing block**——sheet 的 `bottom: 0` 不再指 viewport 底，而是 motion.div 底（即 History 内容最底端）
+- **修复**：用 `React.createPortal(sheet + scrim, document.body)` 把抽屉渲染到 `<body>` 直属，逃出 transform 父级；同时给 sheet 加 `max-w-md mx-auto` 保持和 app 容器同宽
+- **教训**：将来在 PWA 任何受 motion 包裹的 view 里要用 `position: fixed` 都先想 portal
+
+**a11y / 交互打磨**：
+- `role="dialog"` + `aria-modal="true"` + `aria-labelledby={SHEET_HEADING_ID}`
+- Escape 键关闭 sheet
+- sheet 打开时 `document.body.style.overflow = 'hidden'` 锁背景滚动
+- 下拉关闭：motion 的 `drag="y"` + `onDragEnd` 超过 100px 触发 `onClose`
+
+**改动文件**：
+- `src/components/HistoryView.tsx` (+186 / -7) — 新增 `DayDetailSheet` 组件 + 日历交互调整
+- `tests/e2e/demo-flow.spec.ts` (+17) — 新增 "Calendar day tap opens detail sheet" case
+
+**验证**：lint 0 / 40 单测全过 / 13 个 e2e 全过 / 用户真浏览器验收通过
+
+**未做（留意）**：iOS PWA 真机回归——`drag="y"` 与 iOS Safari 的橡皮筋滚动可能有冲突，需上线后真机走一遍。
+
+---
+
 ## 6.0 5-05 之后增量（2026-05-05 ~ 2026-05-07）
 
 | 时间 | 内容 | Commit |

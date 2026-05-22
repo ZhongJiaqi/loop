@@ -72,6 +72,23 @@ test.describe('Demo mode (logged-in UI surrogate)', () => {
     });
   });
 
+  test('Calendar day tap opens detail sheet showing that day\'s practices', async ({ page }) => {
+    await page.goto(DEMO_URL);
+    await page.waitForSelector('h1', { timeout: 15000 });
+
+    await page.getByRole('button', { name: /HISTORY/i }).click();
+
+    // Tap the first calendar day that has practices (aria-label "View MMM d details")
+    await page.getByRole('button', { name: /^View .* details$/ }).first().click();
+
+    // Sheet appears with "of N completed" summary
+    await expect(page.getByText(/of \d+ completed/i)).toBeVisible({ timeout: 3000 });
+
+    // Escape key closes the sheet
+    await page.keyboard.press('Escape');
+    await expect(page.getByText(/of \d+ completed/i)).not.toBeVisible({ timeout: 3000 });
+  });
+
   test('Exit Demo button returns to login page', async ({ page }) => {
     await page.goto(DEMO_URL);
     await page.waitForSelector('h1', { timeout: 15000 });

@@ -1,6 +1,7 @@
-import { useState } from 'react';
-import { format, addMonths, subMonths, startOfMonth, endOfMonth, startOfWeek, endOfWeek, eachDayOfInterval, isSameMonth, isToday, differenceInDays, parseISO } from 'date-fns';
-import { motion } from 'motion/react';
+import { useEffect, useState } from 'react';
+import { createPortal } from 'react-dom';
+import { format, addMonths, subMonths, startOfMonth, endOfMonth, startOfWeek, endOfWeek, eachDayOfInterval, isSameMonth, isToday, isYesterday, differenceInDays, parseISO } from 'date-fns';
+import { motion, AnimatePresence, PanInfo } from 'motion/react';
 import { ChevronLeft, ChevronRight } from 'lucide-react';
 import { Task, MicroHabit } from '../types';
 import { cn } from '../lib/utils';
@@ -11,6 +12,8 @@ export default function HistoryView({ store }: { store: any }) {
   const { tasks, microHabits } = store.data;
   const [currentMonth, setCurrentMonth] = useState(new Date());
   const [filter, setFilter] = useState<Filter>('all');
+  const [selectedDate, setSelectedDate] = useState<string>(format(new Date(), 'yyyy-MM-dd'));
+  const [sheetOpen, setSheetOpen] = useState(false);
 
   // build category map (habitId → category)
   const habitCategoryMap = new Map<string, 'habit' | 'affirmation'>();
@@ -146,26 +149,56 @@ export default function HistoryView({ store }: { store: any }) {
             const allDone = totalCount > 0 && completedCount === totalCount;
             const isCurrentMonth = isSameMonth(day, monthStart);
             const isTodayDate = isToday(day);
+            const isSelected = dateStr === selectedDate;
 
             return (
-              <div key={dateStr} className="flex flex-col items-center justify-center h-10">
+              <button
+                type="button"
+                key={dateStr}
+                onClick={() => {
+                  if (totalCount === 0) return;
+                  setSelectedDate(dateStr);
+                  setSheetOpen(true);
+                }}
+                disabled={totalCount === 0}
+                aria-label={
+                  totalCount === 0
+                    ? `${format(day, 'MMM d')} — no practices`
+                    : `View ${format(day, 'MMM d')} details`
+                }
+                aria-pressed={isSelected && sheetOpen}
+                className={cn(
+                  "flex flex-col items-center justify-center h-10",
+                  "focus:outline-none focus-visible:ring-2 focus-visible:ring-[#1A1A1A] focus-visible:rounded",
+                  totalCount === 0 && "cursor-default"
+                )}
+              >
                 <div className={cn(
                   "w-7 h-7 flex items-center justify-center rounded-full text-xs font-serif transition-all duration-300",
                   !isCurrentMonth ? "text-[#EAE8E3]" :
                   allDone ? "bg-[#8A9A86] text-white" :
                   isTodayDate ? "border border-[#8A9A86] text-[#1A1A1A]" :
-                  "text-[#2C2C2C] hover:bg-[#F0EFEA]"
+                  "text-[#2C2C2C] hover:bg-[#F0EFEA]",
+                  isSelected && sheetOpen && isCurrentMonth && "ring-2 ring-[#1A1A1A] ring-offset-2 ring-offset-[#F9F8F6]"
                 )}>
                   {format(day, 'd')}
                 </div>
                 {isCurrentMonth && totalCount > 0 && !allDone && (
-                  <div className="w-1 h-1 rounded-full bg-[#D1CEC7] mt-1"></div>
+                  <div className="w-1 h-1 rounded-full bg-[#D1CEC7] mt-1" aria-hidden />
                 )}
-              </div>
+              </button>
             );
           })}
         </div>
       </div>
+
+      <DayDetailSheet
+        open={sheetOpen}
+        onClose={() => setSheetOpen(false)}
+        selectedDate={selectedDate}
+        tasks={filteredTasks}
+        microHabits={microHabits}
+      />
 
       {/* Stats Overview */}
       <div className="grid grid-cols-2 gap-4 mb-16">
@@ -296,5 +329,144 @@ export default function HistoryView({ store }: { store: any }) {
         })()}
       </div>
     </div>
+  );
+}
+
+function renderTaskRow(task: Task, isAffirmation: boolean) {
+  const dotClass = task.completed
+    ? isAffirmation
+      ? 'bg-[#C9A961]'
+      : 'bg-[#8A9A86]'
+    : 'border border-[#D1CEC7] bg-transparent';
+  return (
+    <li key={task.id} className="flex items-center gap-3 py-1">
+      <span className={cn('w-2.5 h-2.5 rounded-full shrink-0', dotClass)} aria-hidden />
+      <span
+        className={cn(
+          'text-[15px] font-serif truncate',
+          task.completed ? 'text-[#2C2C2C]' : 'text-[#B0ADA5]',
+          isAffirmation && 'italic'
+        )}
+      >
+        {isAffirmation && <span className="text-[#A09E9A]">&ldquo;</span>}
+        {task.title}
+        {isAffirmation && <span className="text-[#A09E9A]">&rdquo;</span>}
+      </span>
+    </li>
+  );
+}
+
+interface DayDetailSheetProps {
+  open: boolean;
+  onClose: () => void;
+  selectedDate: string;
+  tasks: Task[];
+  microHabits: MicroHabit[];
+}
+
+const SHEET_HEADING_ID = 'day-detail-sheet-heading';
+const SHEET_CLOSE_DRAG_THRESHOLD = 100;
+
+function DayDetailSheet({ open, onClose, selectedDate, tasks, microHabits }: DayDetailSheetProps) {
+  const dayDate = parseISO(selectedDate);
+  const habitCategoryMap = new Map<string, 'habit' | 'affirmation'>();
+  microHabits.forEach((h) => habitCategoryMap.set(h.id, h.category ?? 'habit'));
+  const dayTasks = tasks.filter((t) => t.date === selectedDate);
+  const completed = dayTasks.filter((t) => t.completed);
+  const missed = dayTasks.filter((t) => !t.completed);
+  const orderedTasks = [...completed, ...missed];
+
+  const dateHeading = isToday(dayDate)
+    ? `${format(dayDate, 'MMM d')} · Today`
+    : isYesterday(dayDate)
+    ? `${format(dayDate, 'MMM d')} · Yesterday`
+    : format(dayDate, 'MMM d, yyyy');
+
+  // Escape key closes the sheet
+  useEffect(() => {
+    if (!open) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') onClose();
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [open, onClose]);
+
+  // Lock body scroll while sheet is open (prevents background drift on mobile)
+  useEffect(() => {
+    if (!open) return;
+    const prev = document.body.style.overflow;
+    document.body.style.overflow = 'hidden';
+    return () => {
+      document.body.style.overflow = prev;
+    };
+  }, [open]);
+
+  const handleDragEnd = (_: unknown, info: PanInfo) => {
+    if (info.offset.y > SHEET_CLOSE_DRAG_THRESHOLD) onClose();
+  };
+
+  // Render via portal to document.body so fixed positioning anchors to the
+  // viewport, not to the ancestor <motion.div> in App.tsx (which uses
+  // transform/filter and therefore becomes the containing block for fixed
+  // descendants — making the sheet appear at the bottom of History content
+  // instead of the bottom of the screen).
+  if (typeof document === 'undefined') return null;
+
+  return createPortal(
+    <AnimatePresence>
+      {open && (
+        <>
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            transition={{ duration: 0.2 }}
+            className="fixed inset-0 bg-black/30 z-40"
+            onClick={onClose}
+            aria-hidden
+          />
+          <motion.div
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby={SHEET_HEADING_ID}
+            initial={{ y: '100%' }}
+            animate={{ y: 0 }}
+            exit={{ y: '100%' }}
+            transition={{ type: 'spring', damping: 30, stiffness: 300 }}
+            drag="y"
+            dragConstraints={{ top: 0, bottom: 0 }}
+            dragElastic={{ top: 0, bottom: 0.4 }}
+            onDragEnd={handleDragEnd}
+            className="fixed bottom-0 left-0 right-0 z-50 bg-[#F9F8F6] rounded-t-2xl p-6 max-h-[80vh] overflow-y-auto mx-auto max-w-md"
+          >
+            <div className="w-12 h-1 bg-[#E5E3DD] rounded-full mx-auto mb-5" aria-hidden />
+            <h2
+              id={SHEET_HEADING_ID}
+              className="text-[10px] font-medium text-[#A09E9A] uppercase tracking-[0.2em] mb-4 text-center"
+            >
+              {dateHeading}
+            </h2>
+            {orderedTasks.length === 0 ? (
+              <p className="text-center font-serif italic text-sm text-[#B0ADA5] py-4">
+                No practices on this day.
+              </p>
+            ) : (
+              <>
+                <p className="text-center text-[11px] tracking-widest uppercase text-[#A09E9A] mb-5">
+                  {completed.length} of {orderedTasks.length} completed
+                </p>
+                <ul className="space-y-3 pb-4">
+                  {orderedTasks.map((task) =>
+                    renderTaskRow(task, habitCategoryMap.get(task.habitId) === 'affirmation')
+                  )}
+                </ul>
+              </>
+            )}
+          </motion.div>
+        </>
+      )}
+    </AnimatePresence>,
+    document.body
   );
 }
