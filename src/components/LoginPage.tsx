@@ -44,6 +44,16 @@ export default function LoginPage({ onLogin, loginPending, loginError }: LoginPa
           {/* Strand B: top-right → gap at center (visible twist) → bottom-left */}
           <path d="M 90 20 C 90 6, 70 6, 56 17" />
           <path d="M 44 23 C 30 34, 10 34, 10 20" />
+          {/* Traveling dot — completes one figure-8 loop in 8s, visualizing
+              "the cycle is moving". Continuous path bridges the visible
+              twist gap, suggesting the strip is one surface. */}
+          <circle r="1.8" fill="#1A1A1A" className="motion-safe:opacity-100 motion-reduce:opacity-0">
+            <animateMotion
+              dur="8s"
+              repeatCount="indefinite"
+              path="M 10 20 C 10 6, 30 6, 50 20 C 70 34, 90 34, 90 20 C 90 6, 70 6, 50 20 C 30 34, 10 34, 10 20 Z"
+            />
+          </circle>
         </motion.svg>
 
         {/* Brand wordmark */}
