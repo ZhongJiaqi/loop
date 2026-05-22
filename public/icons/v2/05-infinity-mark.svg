@@ -1,0 +1,10 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="512" height="512" viewBox="0 0 512 512">
+  <title>Loop · Infinity wordmark — single thicker stroke</title>
+  <rect width="512" height="512" rx="108" fill="#F5F2EC"/>
+  <!-- Geometric infinity (∞) — single continuous figure-8 sized for icon legibility at 60px -->
+  <g fill="none" stroke="#1A1A1A" stroke-width="38" stroke-linecap="round">
+    <path d="M 174 256 C 174 188, 256 188, 256 256 C 256 324, 338 324, 338 256 C 338 188, 256 188, 256 256 C 256 324, 174 324, 174 256 Z"/>
+  </g>
+  <!-- Traveling dot anchor (top of right lobe) — gives identity, matches LoginPage -->
+  <circle cx="338" cy="222" r="14" fill="#1A1A1A"/>
+</svg>

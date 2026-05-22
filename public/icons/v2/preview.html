@@ -1,0 +1,231 @@
+<!doctype html>
+<html lang="zh">
+<head>
+<meta charset="utf-8"/>
+<title>Loop · Icon Comparison</title>
+<meta name="viewport" content="width=device-width, initial-scale=1"/>
+<style>
+  :root {
+    --cream: #F5F2EC;
+    --ink: #1A1A1A;
+    --muted: #5A5754;
+    --rule: #E5E1D7;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    background: #FAF8F3;
+    color: var(--ink);
+    padding: 48px 24px 120px;
+  }
+  header {
+    max-width: 1100px;
+    margin: 0 auto 36px;
+  }
+  h1 {
+    font-family: Georgia, serif;
+    font-weight: 500;
+    font-size: 32px;
+    margin: 0 0 6px;
+    letter-spacing: 0.01em;
+  }
+  .sub {
+    color: var(--muted);
+    font-size: 14px;
+    line-height: 1.6;
+    margin: 0;
+    max-width: 600px;
+  }
+  .grid {
+    max-width: 1100px;
+    margin: 0 auto;
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+    gap: 28px;
+  }
+  .card {
+    background: #fff;
+    border: 1px solid var(--rule);
+    border-radius: 16px;
+    padding: 24px;
+    display: flex;
+    flex-direction: column;
+    gap: 18px;
+  }
+  .card h2 {
+    font-family: Georgia, serif;
+    font-size: 18px;
+    font-weight: 500;
+    margin: 0;
+    letter-spacing: 0.01em;
+  }
+  .card .tag {
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: 0.15em;
+    color: var(--muted);
+    margin: -10px 0 0;
+  }
+  .sizes {
+    display: flex;
+    align-items: flex-end;
+    gap: 18px;
+    padding: 14px 0 4px;
+    border-top: 1px dashed var(--rule);
+  }
+  .size {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 6px;
+  }
+  .size .label {
+    font-size: 10px;
+    color: var(--muted);
+    letter-spacing: 0.05em;
+  }
+  .size img {
+    display: block;
+    border-radius: 22%;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.06);
+  }
+  .home-row {
+    display: flex;
+    gap: 14px;
+    align-items: center;
+    background: linear-gradient(180deg,#cfd6dd 0%, #aab4c0 100%);
+    padding: 14px 16px;
+    border-radius: 18px;
+  }
+  .home-row .ios-app {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    color: #fff;
+    font-size: 11px;
+    font-weight: 500;
+    gap: 4px;
+    text-shadow: 0 1px 2px rgba(0,0,0,0.25);
+  }
+  .home-row .ios-app img {
+    width: 60px;
+    height: 60px;
+    border-radius: 13px;
+    box-shadow: 0 4px 10px rgba(0,0,0,0.18);
+  }
+  .pick {
+    margin-top: 4px;
+    display: inline-block;
+    align-self: flex-start;
+    font-size: 12px;
+    background: var(--ink);
+    color: var(--cream);
+    border: none;
+    padding: 8px 14px;
+    border-radius: 999px;
+    cursor: pointer;
+    font-family: inherit;
+    letter-spacing: 0.05em;
+  }
+  .pick:hover { opacity: 0.85; }
+  .picked {
+    border: 2px solid var(--ink);
+    background: #FBF7EE;
+  }
+  .winner-banner {
+    position: fixed;
+    bottom: 24px;
+    left: 50%;
+    transform: translateX(-50%);
+    background: var(--ink);
+    color: var(--cream);
+    padding: 14px 22px;
+    border-radius: 999px;
+    font-size: 14px;
+    box-shadow: 0 10px 30px rgba(0,0,0,0.2);
+    display: none;
+  }
+  .winner-banner.show { display: block; }
+</style>
+</head>
+<body>
+<header>
+  <h1>Loop · Icon Comparison</h1>
+  <p class="sub">All six options use the Möbius/loop brand mark established on LoginPage.
+  Each card shows the icon at three real usage sizes: 16px favicon, 60px iOS home-screen, and 180px launch.
+  Click <em>Pick</em> on your preferred design — I'll generate the production PNGs and wire it in.</p>
+</header>
+
+<div class="grid" id="grid"></div>
+
+<div class="winner-banner" id="banner"></div>
+
+<script>
+const options = [
+  { id: '01-cream-mobius',  name: '01 · Cream Möbius',   tag: 'Quiet · Editorial · Matches LoginPage 1:1' },
+  { id: '02-dark-mobius',   name: '02 · Dark Möbius',    tag: 'Punchy · Reads at 16px · Stands out on light home screens' },
+  { id: '03-sage-mobius',   name: '03 · Sage Möbius',    tag: 'Warm · Distinctive among stock-grey app icons' },
+  { id: '04-cream-gradient',name: '04 · Cream + Gradient',tag: 'Refined · Subtle depth · Designer-feel' },
+  { id: '05-infinity-mark', name: '05 · Geometric ∞',    tag: 'Cleaner · More icon-like · Loses the strand-crossing nuance' },
+  { id: '06-circle-dot',    name: '06 · Ring + Dot',     tag: 'Minimal · Best at 16px · Less topology-specific' },
+];
+
+const grid = document.getElementById('grid');
+options.forEach(o => {
+  const card = document.createElement('div');
+  card.className = 'card';
+  card.innerHTML = `
+    <div>
+      <h2>${o.name}</h2>
+      <p class="tag">${o.tag}</p>
+    </div>
+    <div class="home-row">
+      <div class="ios-app">
+        <img src="./${o.id}.svg" alt=""/>
+        <span>Loop</span>
+      </div>
+      <div class="ios-app">
+        <img src="./${o.id}.svg" alt="" style="width:48px;height:48px;border-radius:11px;opacity:0.5"/>
+        <span style="opacity:0.5">Mail</span>
+      </div>
+      <div class="ios-app">
+        <img src="./${o.id}.svg" alt="" style="width:48px;height:48px;border-radius:11px;opacity:0.5"/>
+        <span style="opacity:0.5">Notes</span>
+      </div>
+    </div>
+    <div class="sizes">
+      <div class="size">
+        <img src="./${o.id}.svg" width="16" height="16" alt=""/>
+        <span class="label">16px favicon</span>
+      </div>
+      <div class="size">
+        <img src="./${o.id}.svg" width="60" height="60" alt=""/>
+        <span class="label">60px iOS</span>
+      </div>
+      <div class="size">
+        <img src="./${o.id}.svg" width="120" height="120" alt=""/>
+        <span class="label">120px</span>
+      </div>
+      <div class="size">
+        <img src="./${o.id}.svg" width="180" height="180" alt=""/>
+        <span class="label">180px launch</span>
+      </div>
+    </div>
+    <button class="pick" data-id="${o.id}" data-name="${o.name}">Pick ${o.name.split('·')[0].trim()}</button>
+  `;
+  grid.appendChild(card);
+});
+
+const banner = document.getElementById('banner');
+grid.addEventListener('click', (e) => {
+  const btn = e.target.closest('.pick');
+  if (!btn) return;
+  document.querySelectorAll('.card').forEach(c => c.classList.remove('picked'));
+  btn.closest('.card').classList.add('picked');
+  banner.textContent = `Selected: ${btn.dataset.name} — copy this id to chat: ${btn.dataset.id}`;
+  banner.classList.add('show');
+});
+</script>
+</body>
+</html>

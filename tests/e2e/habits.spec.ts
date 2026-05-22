@@ -34,10 +34,13 @@ test.describe('PWA', () => {
     expect(manifest.name).toBe('Loop');
     expect(manifest.short_name).toBe('Loop');
     expect(manifest.display).toBe('standalone');
-    expect(manifest.theme_color).toBe('#F9F8F6');
-    expect(manifest.icons).toHaveLength(2);
-    expect(manifest.icons[0].sizes).toBe('192x192');
-    expect(manifest.icons[1].sizes).toBe('512x512');
+    expect(manifest.theme_color).toBe('#F5F2EC');
+    // any + maskable variants × 2 sizes = 4 icons
+    expect(manifest.icons).toHaveLength(4);
+    const anyIcons = manifest.icons.filter((i: { purpose?: string }) => i.purpose === 'any');
+    const maskableIcons = manifest.icons.filter((i: { purpose?: string }) => i.purpose === 'maskable');
+    expect(anyIcons).toHaveLength(2);
+    expect(maskableIcons).toHaveLength(2);
   });
 
   test('icons are accessible', async ({ page }) => {
@@ -49,6 +52,12 @@ test.describe('PWA', () => {
 
     const appleTouchIcon = await page.goto(`${BASE_URL}/apple-touch-icon.png`);
     expect(appleTouchIcon?.status()).toBe(200);
+
+    const maskable192 = await page.goto(`${BASE_URL}/icon-maskable-192x192.png`);
+    expect(maskable192?.status()).toBe(200);
+
+    const maskable512 = await page.goto(`${BASE_URL}/icon-maskable-512x512.png`);
+    expect(maskable512?.status()).toBe(200);
   });
 
   test('page title is Loop', async ({ page }) => {
@@ -60,7 +69,7 @@ test.describe('PWA', () => {
     await page.goto(BASE_URL, { waitUntil: 'domcontentloaded' });
 
     const themeColor = await page.locator('meta[name="theme-color"]').getAttribute('content');
-    expect(themeColor).toBe('#F9F8F6');
+    expect(themeColor).toBe('#F5F2EC');
 
     const description = await page.locator('meta[name="description"]').getAttribute('content');
     expect(description).toContain('Thoughts create feelings');

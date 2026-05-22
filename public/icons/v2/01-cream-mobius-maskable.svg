@@ -1,0 +1,10 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="512" height="512" viewBox="0 0 512 512">
+  <title>Loop · Möbius — Maskable (mark inside 80% safe zone)</title>
+  <rect width="512" height="512" fill="#F5F2EC"/>
+  <g transform="translate(106,212) scale(3)" fill="none" stroke="#1A1A1A" stroke-width="7" stroke-linecap="round">
+    <path d="M 10 20 C 10 6, 30 6, 50 20 C 70 34, 90 34, 90 20"/>
+    <path d="M 90 20 C 90 6, 70 6, 56 17"/>
+    <path d="M 44 23 C 30 34, 10 34, 10 20"/>
+  </g>
+  <circle cx="376" cy="272" r="12" fill="#1A1A1A"/>
+</svg>
