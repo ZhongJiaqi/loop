@@ -89,6 +89,53 @@ test.describe('Demo mode (logged-in UI surrogate)', () => {
     await expect(page.getByText(/of \d+ completed/i)).not.toBeVisible({ timeout: 3000 });
   });
 
+  test('Day detail sheet has scrollable content region separate from drag handle', async ({ page }) => {
+    // Small viewport forces the sheet (max-h 80vh) to be shorter than content.
+    await page.setViewportSize({ width: 390, height: 240 });
+    await page.goto(DEMO_URL);
+    await page.waitForSelector('h1', { timeout: 15000 });
+
+    await page.getByRole('button', { name: /HISTORY/i }).click();
+    await page.getByRole('button', { name: /^View .* details$/ }).first().click();
+    await expect(page.getByText(/of \d+ completed/i)).toBeVisible({ timeout: 3000 });
+
+    // Structural guarantee against the original bug:
+    //   The bug was that drag="y" + overflow-y-auto on the same element made
+    //   framer-motion swallow vertical touch gestures, so the user couldn't
+    //   scroll. The fix splits these into separate elements: drag is opt-in
+    //   via dragControls on the grab handle, and the content area owns scroll.
+    const structure = await page.evaluate(() => {
+      const dialog = document.querySelector<HTMLElement>('[role="dialog"]');
+      if (!dialog) return null;
+      const dialogCS = getComputedStyle(dialog);
+      const scrollEl = dialog.querySelector<HTMLElement>('.overflow-y-auto');
+      if (!scrollEl) return { dialogOverflowY: dialogCS.overflowY, scrollEl: null };
+      // Verify content actually overflows and the inner element does scroll.
+      scrollEl.scrollTop = 0;
+      const before = scrollEl.scrollTop;
+      scrollEl.scrollTop = 9999;
+      const after = scrollEl.scrollTop;
+      return {
+        dialogOverflowY: dialogCS.overflowY,
+        scrollEl: {
+          overflowY: getComputedStyle(scrollEl).overflowY,
+          canScroll: scrollEl.scrollHeight > scrollEl.clientHeight,
+          scrollTopBefore: before,
+          scrollTopAfter: after,
+        },
+      };
+    });
+    expect(structure).not.toBeNull();
+    // Outer dialog must NOT be the scroll container — that's what blocked touch scroll.
+    expect(structure!.dialogOverflowY).not.toBe('auto');
+    expect(structure!.dialogOverflowY).not.toBe('scroll');
+    // Inner content region owns scroll.
+    expect(structure!.scrollEl).not.toBeNull();
+    expect(structure!.scrollEl!.overflowY).toBe('auto');
+    expect(structure!.scrollEl!.canScroll).toBe(true);
+    expect(structure!.scrollEl!.scrollTopAfter).toBeGreaterThan(0);
+  });
+
   test('Exit Demo button returns to login page', async ({ page }) => {
     await page.goto(DEMO_URL);
     await page.waitForSelector('h1', { timeout: 15000 });

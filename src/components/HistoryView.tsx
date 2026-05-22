@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { format, addMonths, subMonths, startOfMonth, endOfMonth, startOfWeek, endOfWeek, eachDayOfInterval, isSameMonth, isToday, isYesterday, differenceInDays, parseISO } from 'date-fns';
-import { motion, AnimatePresence, PanInfo } from 'motion/react';
+import { motion, AnimatePresence, PanInfo, useDragControls } from 'motion/react';
 import { ChevronLeft, ChevronRight } from 'lucide-react';
 import { Task, MicroHabit } from '../types';
 import { cn } from '../lib/utils';
@@ -368,6 +368,7 @@ const SHEET_HEADING_ID = 'day-detail-sheet-heading';
 const SHEET_CLOSE_DRAG_THRESHOLD = 100;
 
 function DayDetailSheet({ open, onClose, selectedDate, tasks, microHabits }: DayDetailSheetProps) {
+  const dragControls = useDragControls();
   const dayDate = parseISO(selectedDate);
   const habitCategoryMap = new Map<string, 'habit' | 'affirmation'>();
   microHabits.forEach((h) => habitCategoryMap.set(h.id, h.category ?? 'habit'));
@@ -445,34 +446,43 @@ function DayDetailSheet({ open, onClose, selectedDate, tasks, microHabits }: Day
             exit={{ y: '100%' }}
             transition={{ type: 'spring', damping: 30, stiffness: 300 }}
             drag="y"
+            dragListener={false}
+            dragControls={dragControls}
             dragConstraints={{ top: 0, bottom: 0 }}
             dragElastic={{ top: 0, bottom: 0.4 }}
             onDragEnd={handleDragEnd}
-            className="fixed bottom-0 left-0 right-0 z-50 bg-[#F9F8F6] rounded-t-2xl p-6 max-h-[80vh] overflow-y-auto mx-auto max-w-md"
+            className="fixed bottom-0 left-0 right-0 z-50 bg-[#F9F8F6] rounded-t-2xl max-h-[80vh] mx-auto max-w-md flex flex-col"
           >
-            <div className="w-12 h-1 bg-[#E5E3DD] rounded-full mx-auto mb-5" aria-hidden />
-            <h2
-              id={SHEET_HEADING_ID}
-              className="text-[10px] font-medium text-[#A09E9A] uppercase tracking-[0.2em] mb-4 text-center"
+            <div
+              className="pt-6 px-6 pb-2 cursor-grab active:cursor-grabbing touch-none select-none"
+              onPointerDown={(e) => dragControls.start(e)}
             >
-              {dateHeading}
-            </h2>
-            {orderedTasks.length === 0 ? (
-              <p className="text-center font-serif italic text-sm text-[#B0ADA5] py-4">
-                No practices on this day.
-              </p>
-            ) : (
-              <>
-                <p className="text-center text-[11px] tracking-widest uppercase text-[#A09E9A] mb-5">
-                  {completedCount} of {orderedTasks.length} completed
+              <div className="w-12 h-1 bg-[#E5E3DD] rounded-full mx-auto mb-5" aria-hidden />
+              <h2
+                id={SHEET_HEADING_ID}
+                className="text-[10px] font-medium text-[#A09E9A] uppercase tracking-[0.2em] mb-2 text-center"
+              >
+                {dateHeading}
+              </h2>
+            </div>
+            <div className="flex-1 overflow-y-auto overscroll-contain px-6 pb-6 pt-2">
+              {orderedTasks.length === 0 ? (
+                <p className="text-center font-serif italic text-sm text-[#B0ADA5] py-4">
+                  No practices on this day.
                 </p>
-                <ul className="space-y-3 pb-4">
-                  {orderedTasks.map((task) =>
-                    renderTaskRow(task, habitCategoryMap.get(task.habitId) === 'affirmation')
-                  )}
-                </ul>
-              </>
-            )}
+              ) : (
+                <>
+                  <p className="text-center text-[11px] tracking-widest uppercase text-[#A09E9A] mb-5">
+                    {completedCount} of {orderedTasks.length} completed
+                  </p>
+                  <ul className="space-y-3 pb-4">
+                    {orderedTasks.map((task) =>
+                      renderTaskRow(task, habitCategoryMap.get(task.habitId) === 'affirmation')
+                    )}
+                  </ul>
+                </>
+              )}
+            </div>
           </motion.div>
         </>
       )}
