@@ -13,9 +13,9 @@ export default defineConfig(({mode}) => {
       VitePWA({
         registerType: 'autoUpdate',
         manifest: {
-          name: 'Becoming',
-          short_name: 'Becoming',
-          description: 'Every action you take is a vote for who you wish to become.',
+          name: 'Loop',
+          short_name: 'Loop',
+          description: 'Thoughts create feelings. Feelings drive actions. Actions shape you.',
           theme_color: '#F9F8F6',
           background_color: '#F9F8F6',
           display: 'standalone',

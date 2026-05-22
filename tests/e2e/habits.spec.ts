@@ -1,5 +1,5 @@
 /**
- * E2E tests for Becoming app.
+ * E2E tests for Loop app.
  * Runs against local preview server (production build).
  */
 import { test, expect } from '@playwright/test';
@@ -7,12 +7,12 @@ import { test, expect } from '@playwright/test';
 const BASE_URL = 'http://localhost:4173';
 
 test.describe('Login Page', () => {
-  test('shows Becoming brand and login button', async ({ page }) => {
+  test('shows Loop brand and login button', async ({ page }) => {
     await page.goto(BASE_URL);
     // Wait for React to render (Firebase SDK keeps connections open, so networkidle won't work)
     await page.waitForSelector('h1', { timeout: 15000 });
 
-    await expect(page.locator('h1')).toContainText('Becoming');
+    await expect(page.locator('h1')).toContainText('Loop');
     await expect(page.locator('button')).toContainText('Continue with Google');
   });
 
@@ -20,7 +20,7 @@ test.describe('Login Page', () => {
     await page.goto(BASE_URL);
     await page.waitForSelector('h1', { timeout: 15000 });
     await expect(
-      page.locator('p').filter({ hasText: 'Every action you take is a vote' })
+      page.locator('p').filter({ hasText: 'Thoughts create feelings' })
     ).toBeVisible();
   });
 });
@@ -31,8 +31,8 @@ test.describe('PWA', () => {
     expect(response?.status()).toBe(200);
 
     const manifest = await response?.json();
-    expect(manifest.name).toBe('Becoming');
-    expect(manifest.short_name).toBe('Becoming');
+    expect(manifest.name).toBe('Loop');
+    expect(manifest.short_name).toBe('Loop');
     expect(manifest.display).toBe('standalone');
     expect(manifest.theme_color).toBe('#F9F8F6');
     expect(manifest.icons).toHaveLength(2);
@@ -51,9 +51,9 @@ test.describe('PWA', () => {
     expect(appleTouchIcon?.status()).toBe(200);
   });
 
-  test('page title is Becoming', async ({ page }) => {
+  test('page title is Loop', async ({ page }) => {
     await page.goto(BASE_URL, { waitUntil: 'domcontentloaded' });
-    await expect(page).toHaveTitle('Becoming');
+    await expect(page).toHaveTitle('Loop');
   });
 
   test('has correct meta tags in HTML', async ({ page }) => {
@@ -63,7 +63,7 @@ test.describe('PWA', () => {
     expect(themeColor).toBe('#F9F8F6');
 
     const description = await page.locator('meta[name="description"]').getAttribute('content');
-    expect(description).toContain('vote for who you wish to become');
+    expect(description).toContain('Thoughts create feelings');
 
     const appleCapable = await page.locator('meta[name="apple-mobile-web-app-capable"]').getAttribute('content');
     expect(appleCapable).toBe('yes');
@@ -76,7 +76,7 @@ test.describe('Responsive', () => {
     await page.goto(BASE_URL);
     await page.waitForSelector('h1', { timeout: 15000 });
 
-    await expect(page.locator('h1')).toContainText('Becoming');
+    await expect(page.locator('h1')).toContainText('Loop');
     await expect(page.locator('button')).toContainText('Continue with Google');
   });
 });

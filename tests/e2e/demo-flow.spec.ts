@@ -1,5 +1,5 @@
 /**
- * E2E tests for Becoming app — logged-in UI flows.
+ * E2E tests for Loop app — logged-in UI flows.
  *
  * Uses ?demo=1 mode to bypass Firebase Auth (which requires authorized domains
  * not configured for localhost). This validates that the post-login UI renders,
@@ -20,7 +20,7 @@ test.describe('Demo mode (logged-in UI surrogate)', () => {
     await page.waitForSelector('h1', { timeout: 15000 });
 
     // Brand visible in header
-    await expect(page.locator('h1').first()).toContainText('Becoming');
+    await expect(page.locator('h1').first()).toContainText('Loop');
 
     // Two section labels rendered
     await expect(page.getByText('Affirmations', { exact: true })).toBeVisible();

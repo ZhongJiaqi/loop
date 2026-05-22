@@ -109,7 +109,7 @@ export function useDemoStore() {
     },
 
     updateTaskPriority: async (): Promise<void> => {
-      // legacy no-op (priority field removed in Becoming refactor)
+      // legacy no-op (priority field removed in earlier refactor)
     },
   };
 }

@@ -6,7 +6,7 @@ interface LoginPageProps {
   loginError: string | null;
 }
 
-const TAGLINE = 'Every action you take is a vote for the type of person you wish to become.';
+const TAGLINE = 'Thoughts create feelings. Feelings drive actions. Actions shape you.';
 
 export default function LoginPage({ onLogin, loginPending, loginError }: LoginPageProps) {
   return (
@@ -14,56 +14,44 @@ export default function LoginPage({ onLogin, loginPending, loginError }: LoginPa
       className="min-h-screen flex flex-col font-sans text-[#2C2C2C] selection:bg-[#E2DFD8]"
       style={{ background: '#F5F2EC' }}
     >
-      {/* Timeline — 3 dots horizontal, last filled = "today, the start" */}
+      {/* Möbius strip — single continuous curve with a half-twist at center.
+          Topology: traverse it and you end up on the "other side" without
+          ever crossing an edge — visualizes how thoughts ↔ feelings ↔ actions
+          loop back into each other (actions reshape thoughts, not just the
+          reverse). The gap at the crossing implies the over/under twist. */}
       <header className="pt-14 pb-4 flex justify-center">
-        <div className="flex items-center gap-3">
-          <span className="w-1.5 h-1.5 rounded-full border border-[#C4C1B9]" />
-          <span className="block h-px bg-[#C4C1B9]" style={{ width: 28 }} />
-          <span className="w-1.5 h-1.5 rounded-full border border-[#C4C1B9]" />
-          <span className="block h-px bg-[#C4C1B9]" style={{ width: 28 }} />
-          <motion.span
-            initial={{ scale: 0 }}
-            animate={{ scale: 1 }}
-            transition={{ duration: 0.6, delay: 1.2, ease: [0.34, 1.56, 0.64, 1] }}
-            className="w-2 h-2 rounded-full"
-            style={{ background: '#1A1A1A' }}
-          />
-        </div>
+        <motion.svg
+          initial={{ opacity: 0, scale: 0.85 }}
+          animate={{ opacity: 1, scale: 1 }}
+          transition={{ duration: 1, ease: [0.16, 1, 0.3, 1] }}
+          viewBox="0 0 100 40"
+          width="72"
+          height="29"
+          fill="none"
+          stroke="#1A1A1A"
+          strokeWidth="1.6"
+          strokeLinecap="round"
+          aria-hidden
+        >
+          {/* Strand A: top-left → crosses center → bottom-right */}
+          <path d="M 10 20 C 10 6, 30 6, 50 20 C 70 34, 90 34, 90 20" />
+          {/* Strand B: top-right → small gap at center (twist) → bottom-left */}
+          <path d="M 90 20 C 90 6, 70 6, 56 17" />
+          <path d="M 44 23 C 30 34, 10 34, 10 20" />
+        </motion.svg>
       </header>
 
       <main className="flex-1 flex flex-col items-center justify-center px-10 w-full max-w-md mx-auto">
-        {/* Brand + blinking cursor — cursor visualizes the -ing tense (永远未完成) */}
-        <div className="relative inline-block">
-          <motion.h1
-            initial={{ opacity: 0, y: 8 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.8, ease: [0.16, 1, 0.3, 1] }}
-            className="font-serif font-medium text-[#1A1A1A] leading-none whitespace-nowrap"
-            style={{ fontSize: 'clamp(52px, 14vw, 76px)', letterSpacing: '0.01em' }}
-          >
-            Becoming
-          </motion.h1>
-          <motion.span
-            initial={{ opacity: 0 }}
-            animate={{ opacity: [0, 1, 1, 0, 0] }}
-            transition={{
-              duration: 1.1,
-              repeat: Infinity,
-              repeatType: 'loop',
-              ease: 'linear',
-              delay: 0.9,
-            }}
-            className="absolute"
-            style={{
-              right: -10,
-              top: '12%',
-              width: 3,
-              height: '70%',
-              background: '#1A1A1A',
-            }}
-            aria-hidden
-          />
-        </div>
+        {/* Brand wordmark — Möbius is the new visual hero, no cursor needed */}
+        <motion.h1
+          initial={{ opacity: 0, y: 8 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.8, ease: [0.16, 1, 0.3, 1] }}
+          className="font-serif font-medium text-[#1A1A1A] leading-none whitespace-nowrap"
+          style={{ fontSize: 'clamp(52px, 14vw, 76px)', letterSpacing: '0.01em' }}
+        >
+          Loop
+        </motion.h1>
 
         <motion.p
           initial={{ opacity: 0 }}

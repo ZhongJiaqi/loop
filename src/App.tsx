@@ -44,11 +44,18 @@ function TodaySkeleton() {
 // 避免老用户每次打开都看到全屏 splash。
 // session 真过期时（极少数）会有"主框架闪一下→LoginPage"的反向闪烁，
 // 但 99% 场景下零等待，明显比"全员都看 splash"好。
-const HAD_SESSION_KEY = 'becoming.hadSession';
+const HAD_SESSION_KEY = 'loop.hadSession';
+// TODO(2026-06-22): remove LEGACY_HAD_SESSION_KEY after 30-day migration window.
+// 老用户从 Becoming 升级到 Loop 时 localStorage 里只有 legacy key，
+// 双读保证他们启动时仍走"老用户乐观渲染"路径（不闪 splash）；写新 key 顺手清 legacy。
+const LEGACY_HAD_SESSION_KEY = 'becoming.hadSession';
 
 function readHadSession(): boolean {
   try {
-    return localStorage.getItem(HAD_SESSION_KEY) === 'true';
+    return (
+      localStorage.getItem(HAD_SESSION_KEY) === 'true' ||
+      localStorage.getItem(LEGACY_HAD_SESSION_KEY) === 'true'
+    );
   } catch {
     return false;
   }
@@ -81,11 +88,17 @@ export default function App() {
       setAuthReady(true);
       if (currentUser) {
         setLoginError(null);
-        try { localStorage.setItem(HAD_SESSION_KEY, 'true'); } catch { /* private mode */ }
+        try {
+          localStorage.setItem(HAD_SESSION_KEY, 'true');
+          localStorage.removeItem(LEGACY_HAD_SESSION_KEY); // 顺手迁移
+        } catch { /* private mode */ }
         setHadSession(true);
       } else {
         // session 真不存在了，清掉乐观标记，下次启动直接显示 LoginPage
-        try { localStorage.removeItem(HAD_SESSION_KEY); } catch { /* private mode */ }
+        try {
+          localStorage.removeItem(HAD_SESSION_KEY);
+          localStorage.removeItem(LEGACY_HAD_SESSION_KEY);
+        } catch { /* private mode */ }
         setHadSession(false);
       }
     });
@@ -141,7 +154,7 @@ export default function App() {
           className="font-serif font-medium text-[#1A1A1A] leading-none animate-pulse"
           style={{ fontSize: 'clamp(52px, 14vw, 76px)', letterSpacing: '0.01em' }}
         >
-          Becoming
+          Loop
         </h1>
       </div>
     );
@@ -170,7 +183,7 @@ export default function App() {
         
         {/* Header */}
         <header className="px-8 pt-12 pb-6 flex items-end justify-between sticky top-0 bg-gradient-to-b from-[#F9F8F6] via-[#F9F8F6] to-transparent z-10">
-          <h1 className="text-2xl font-serif font-medium tracking-widest text-[#1A1A1A]">Becoming</h1>
+          <h1 className="text-2xl font-serif font-medium tracking-widest text-[#1A1A1A]">Loop</h1>
           <div className="flex flex-col items-end gap-1">
             <div className="text-[10px] font-medium tracking-[0.2em] text-[#8C8C8C] uppercase">
               {new Date().toLocaleDateString('en-US', { month: 'short', day: '2-digit' })}

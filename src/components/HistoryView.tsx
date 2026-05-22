@@ -372,9 +372,19 @@ function DayDetailSheet({ open, onClose, selectedDate, tasks, microHabits }: Day
   const habitCategoryMap = new Map<string, 'habit' | 'affirmation'>();
   microHabits.forEach((h) => habitCategoryMap.set(h.id, h.category ?? 'habit'));
   const dayTasks = tasks.filter((t) => t.date === selectedDate);
-  const completed = dayTasks.filter((t) => t.completed);
-  const missed = dayTasks.filter((t) => !t.completed);
-  const orderedTasks = [...completed, ...missed];
+  // Group by category (affirmations first, habits second) to match the
+  // Today tab's vertical layout. Within each group, completed tasks bubble
+  // up before missed ones so progress is highlighted.
+  const isAff = (t: Task) => habitCategoryMap.get(t.habitId) === 'affirmation';
+  const affs = dayTasks.filter(isAff);
+  const habs = dayTasks.filter((t) => !isAff(t));
+  const orderedTasks = [
+    ...affs.filter((t) => t.completed),
+    ...affs.filter((t) => !t.completed),
+    ...habs.filter((t) => t.completed),
+    ...habs.filter((t) => !t.completed),
+  ];
+  const completedCount = dayTasks.filter((t) => t.completed).length;
 
   const dateHeading = isToday(dayDate)
     ? `${format(dayDate, 'MMM d')} · Today`
@@ -454,7 +464,7 @@ function DayDetailSheet({ open, onClose, selectedDate, tasks, microHabits }: Day
             ) : (
               <>
                 <p className="text-center text-[11px] tracking-widest uppercase text-[#A09E9A] mb-5">
-                  {completed.length} of {orderedTasks.length} completed
+                  {completedCount} of {orderedTasks.length} completed
                 </p>
                 <ul className="space-y-3 pb-4">
                   {orderedTasks.map((task) =>

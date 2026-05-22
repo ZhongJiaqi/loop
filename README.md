@@ -1,11 +1,10 @@
-# Becoming
+# Loop
 
-> *Every action you take is a vote for the type of person you wish to become.*
-> — James Clear
+> *Thoughts create feelings. Feelings drive actions. Actions shape you.*
 
-肯定语和习惯的每日实践。每个行动，都是投给你想成为之人的一票。
+肯定语和习惯的每日实践。思想创造感觉，感觉驱动行动，行动塑造你。
 
-A daily-practice PWA that pairs **affirmations** (what you tell yourself) with **habits** (what you do), built on the behavior-science chain *thought → action → destiny*.
+A daily-practice PWA that pairs **affirmations** (what you tell yourself) with **habits** (what you do), built on the behavior-science loop *thoughts → feelings → actions → identity → thoughts*.
 
 ## Features
 
