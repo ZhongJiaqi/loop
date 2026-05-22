@@ -2,7 +2,7 @@ import { useState, useEffect, useRef } from 'react';
 import { format } from 'date-fns';
 import { MicroHabit, Task, HabitPoolItem } from './types';
 import { db, auth } from './firebase';
-import { collection, doc, setDoc, deleteDoc, updateDoc, onSnapshot, query } from 'firebase/firestore';
+import { collection, doc, getDoc, setDoc, deleteDoc, updateDoc, onSnapshot, query } from 'firebase/firestore';
 
 export async function migrateMicroHabitCategory(
   habit: MicroHabit,
@@ -12,6 +12,29 @@ export async function migrateMicroHabitCategory(
   if (habit.category) return; // already migrated, skip
   const path = `users/${userId}/microHabits/${habit.id}`;
   await setDocFn(doc(db, path), { category: 'habit' }, { merge: true });
+}
+
+/**
+ * Safely creates a Firestore task doc only if it doesn't already exist.
+ *
+ * Why: the daily reset effect runs whenever local `data.tasks` updates, which
+ * can briefly be empty/stale (cold IndexedDB cache, SW update, network race).
+ * A plain `setDoc` would then overwrite an existing task — including the
+ * user's `completed: true` state — back to `completed: false`. The getDoc
+ * gate guarantees we never clobber existing progress.
+ *
+ * Returns whether a new doc was created (for telemetry / tests).
+ */
+export async function createTaskIfMissing(
+  taskRef: any,
+  taskData: Task,
+  getDocFn: (ref: any) => Promise<{ exists: () => boolean }> = getDoc as any,
+  setDocFn: (ref: any, data: Task) => Promise<void> = setDoc as any,
+): Promise<{ created: boolean }> {
+  const snap = await getDocFn(taskRef);
+  if (snap.exists()) return { created: false };
+  await setDocFn(taskRef, taskData);
+  return { created: true };
 }
 
 export async function deleteOneTimeTasks(
@@ -255,20 +278,26 @@ export function useStore(userId?: string) {
     // --- Step 3: Create missing tasks ---
     const existingHabitIds = new Set(todayHabitTasks.map(t => t.habitId));
 
-    data.microHabits.forEach(habit => {
+    data.microHabits.forEach((habit) => {
       const taskKey = `${habit.id}_${today}`;
-      if (habit.active && !existingHabitIds.has(habit.id) && !createdTaskIdsRef.current.has(taskKey)) {
-        createdTaskIdsRef.current.add(taskKey);
-        const path = `users/${userId}/tasks/${taskKey}`;
-        setDoc(doc(db, path), {
-          id: taskKey,
-          title: habit.title,
-          date: today,
-          completed: false,
-          habitId: habit.id,
-          userId,
-        } as Task).catch(error => handleFirestoreError(error, OperationType.CREATE, path));
+      if (!habit.active || existingHabitIds.has(habit.id) || createdTaskIdsRef.current.has(taskKey)) {
+        return;
       }
+      createdTaskIdsRef.current.add(taskKey);
+      const path = `users/${userId}/tasks/${taskKey}`;
+      const taskData: Task = {
+        id: taskKey,
+        title: habit.title,
+        date: today,
+        completed: false,
+        habitId: habit.id,
+        userId,
+      };
+      // Use getDoc-gated create to avoid overwriting a pre-existing completed task
+      // when local data.tasks is stale (cold cache / SW update / network race).
+      createTaskIfMissing(doc(db, path), taskData).catch((error) =>
+        handleFirestoreError(error, OperationType.CREATE, path),
+      );
     });
   }, [data.microHabits, data.tasks, userId]);
 

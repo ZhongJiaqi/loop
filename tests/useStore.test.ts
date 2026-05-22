@@ -15,7 +15,7 @@
  */
 import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { format } from 'date-fns';
-import { migrateMicroHabitCategory, deleteOneTimeTasks, calculateStreak } from '../src/useStore';
+import { migrateMicroHabitCategory, deleteOneTimeTasks, calculateStreak, createTaskIfMissing } from '../src/useStore';
 
 // --- Extracted logic from useStore for testability ---
 
@@ -462,5 +462,50 @@ describe('calculateStreak', () => {
       { habitId: 'h2', date: '2026-05-02', completed: true },
     ];
     expect(calculateStreak('h1', '2026-05-03', tasks)).toBe(1);
+  });
+});
+
+describe('createTaskIfMissing — race-safe task creation (regression)', () => {
+  const fakeRef = { _path: 'users/u/tasks/h1_2026-05-22' } as any;
+  const taskData = {
+    id: 'h1_2026-05-22',
+    title: '泡脚',
+    date: '2026-05-22',
+    completed: false,
+    habitId: 'h1',
+    userId: 'u',
+  } as any;
+
+  it('does NOT overwrite when doc already exists in Firestore (stale-snapshot race)', async () => {
+    // Scenario: user already completed today's task earlier (Firestore has completed: true).
+    // After SW update / cold cache, local data.tasks is empty so daily reset tries to create.
+    // The getDoc gate must prevent any setDoc — otherwise completed state is clobbered.
+    const getDocFn = vi.fn().mockResolvedValue({ exists: () => true });
+    const setDocFn = vi.fn();
+
+    const result = await createTaskIfMissing(fakeRef, taskData, getDocFn, setDocFn);
+
+    expect(result.created).toBe(false);
+    expect(getDocFn).toHaveBeenCalledWith(fakeRef);
+    expect(setDocFn).not.toHaveBeenCalled();
+  });
+
+  it('creates with completed: false when doc does not exist', async () => {
+    const getDocFn = vi.fn().mockResolvedValue({ exists: () => false });
+    const setDocFn = vi.fn().mockResolvedValue(undefined);
+
+    const result = await createTaskIfMissing(fakeRef, taskData, getDocFn, setDocFn);
+
+    expect(result.created).toBe(true);
+    expect(setDocFn).toHaveBeenCalledWith(fakeRef, taskData);
+  });
+
+  it('propagates errors from setDoc so caller can log them', async () => {
+    const getDocFn = vi.fn().mockResolvedValue({ exists: () => false });
+    const setDocFn = vi.fn().mockRejectedValue(new Error('permission-denied'));
+
+    await expect(createTaskIfMissing(fakeRef, taskData, getDocFn, setDocFn)).rejects.toThrow(
+      'permission-denied',
+    );
   });
 });
