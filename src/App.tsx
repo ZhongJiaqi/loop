@@ -7,6 +7,8 @@ import PracticeView from './components/PracticeView';
 // Lazy-load so Today/Practice tabs don't pay the cost up-front.
 const HistoryView = lazy(() => import('./components/HistoryView'));
 import NotificationPrompt from './components/NotificationPrompt';
+import NetworkStatusBanner from './components/NetworkStatusBanner';
+import { useNetworkStatus } from './lib/useNetworkStatus';
 import { useStore } from './useStore';
 import { useDemoStore, isDemoMode } from './useDemoStore';
 import LoginPage from './components/LoginPage';
@@ -73,6 +75,11 @@ export default function App() {
   const realStore = useStore(user?.uid);
   const demoStore = useDemoStore();
   const store = demoMode ? demoStore : realStore;
+  // 网络状态：demo 模式恒为"在线"（数据全在本地，不依赖 Firestore）
+  const networkStatus = useNetworkStatus({
+    ready: !demoMode && authReady && !!user,
+    dataLoaded: demoMode ? true : store.data.loaded,
+  });
 
   useEffect(() => {
     let cancelled = false;
@@ -204,6 +211,9 @@ export default function App() {
             </button>
           </div>
         </header>
+
+        {/* Network status banner — surfaces 离线 / Firestore 不可达 状态 */}
+        <NetworkStatusBanner status={networkStatus} />
 
         {/* Notification Permission Prompt */}
         {user && (
