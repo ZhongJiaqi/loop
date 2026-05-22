@@ -1,5 +1,7 @@
 # Loop
 
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](./LICENSE)
+
 > *Thoughts create feelings. Feelings drive actions. Actions shape you.*
 
 肯定语和习惯的每日实践。思想创造感觉，感觉驱动行动，行动塑造你。
@@ -76,3 +78,7 @@ tests/
 **iPhone**: Safari > Share > Add to Home Screen
 
 **Android**: Chrome > Menu > Install App
+
+## License
+
+[MIT](./LICENSE) © 2026 Jiaqi Zhong
