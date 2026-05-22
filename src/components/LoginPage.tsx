@@ -14,35 +14,35 @@ export default function LoginPage({ onLogin, loginPending, loginError }: LoginPa
       className="min-h-screen flex flex-col font-sans text-[#2C2C2C] selection:bg-[#E2DFD8]"
       style={{ background: '#F5F2EC' }}
     >
-      {/* Möbius strip — single continuous curve with a half-twist at center.
-          Topology: traverse it and you end up on the "other side" without
-          ever crossing an edge — visualizes how thoughts ↔ feelings ↔ actions
-          loop back into each other (actions reshape thoughts, not just the
-          reverse). The gap at the crossing implies the over/under twist. */}
-      <header className="pt-14 pb-4 flex justify-center">
+      <main className="flex-1 flex flex-col items-center justify-center px-10 w-full max-w-md mx-auto">
+        {/* Möbius strip — single continuous curve with a half-twist at center.
+            Sits directly above the wordmark so brand mark + name read as ONE
+            composition, not two disconnected elements. Topology: traversing
+            the strip puts you on the "other side" without crossing an edge —
+            visualizes how thoughts ↔ feelings ↔ actions feed back into each
+            other (actions reshape thoughts, not just the reverse). */}
         <motion.svg
           initial={{ opacity: 0, scale: 0.85 }}
           animate={{ opacity: 1, scale: 1 }}
           transition={{ duration: 1, ease: [0.16, 1, 0.3, 1] }}
           viewBox="0 0 100 40"
-          width="72"
-          height="29"
+          width="140"
+          height="56"
           fill="none"
           stroke="#1A1A1A"
-          strokeWidth="1.6"
+          strokeWidth="2"
           strokeLinecap="round"
+          className="mb-6"
           aria-hidden
         >
           {/* Strand A: top-left → crosses center → bottom-right */}
           <path d="M 10 20 C 10 6, 30 6, 50 20 C 70 34, 90 34, 90 20" />
-          {/* Strand B: top-right → small gap at center (twist) → bottom-left */}
+          {/* Strand B: top-right → gap at center (visible twist) → bottom-left */}
           <path d="M 90 20 C 90 6, 70 6, 56 17" />
           <path d="M 44 23 C 30 34, 10 34, 10 20" />
         </motion.svg>
-      </header>
 
-      <main className="flex-1 flex flex-col items-center justify-center px-10 w-full max-w-md mx-auto">
-        {/* Brand wordmark — Möbius is the new visual hero, no cursor needed */}
+        {/* Brand wordmark */}
         <motion.h1
           initial={{ opacity: 0, y: 8 }}
           animate={{ opacity: 1, y: 0 }}
