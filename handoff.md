@@ -200,6 +200,55 @@ prod alias 切到 commit `536a6f1`（revert 后等价 b688016 — 12 个 fixes �
 
 ---
 
+## 6.-3 本次会话（2026-05-22 晚）—— 项目级全栈重命名 micro-habits → loop
+
+**起因**：用户进一步把"内部代号"也对齐到品牌——之前 HANDOFF §2 决策"保留 micro-habits 不动"被显式反转。
+
+### 完成的 5 层 rename（**全部完成**）
+
+| 层 | 旧 | 新 | 工具 |
+|---|---|---|---|
+| **GitHub 仓库** | `ZhongJiaqi/micro-habits` | `ZhongJiaqi/loop` | `gh repo rename loop`（CLI 自动跟更新 git remote）|
+| **Vercel 项目名** | `micro-habits` | `loop` | `vercel projects rename` |
+| **Vercel prod alias**（新增） | — | `loop-365.vercel.app` | `vercel alias set`（迭代抢可用 slug：`loop.vercel.app` / `loop-zeta` / `loop-daily` / `loop-app` 全被占，最后落 `loop-365`——365 暗合年度日常 ）|
+| **本地目录** | `~/micro-habits` | `~/loop` | `mv` |
+| **package.json `name`** | `"micro-habits"` | `"loop"` | Edit |
+
+### Vercel SSO + Google OAuth 配置（用户手动 3 步）
+
+为让新 alias 公开访问 + 登录可用，必须做的 3 个 UI 操作（**没 CLI 替代**，研究过 Web 搜确认）：
+
+1. **Vercel Dashboard → Settings → Deployment Protection**：关掉 "Require Log In"（默认 Standard Protection）。否则新 alias 永远 401
+2. **Firebase Console → Authentication → Settings → Authorized Domains**：加 `loop-365.vercel.app`。否则 Firebase Auth 拒绝
+3. **Google Cloud Console → APIs & Services → Credentials → OAuth 2.0 Client**：加 redirect URI `https://loop-365.vercel.app/__/auth/handler`。否则 OAuth 报 `redirect_uri_mismatch`
+
+注意：第 3 步是因为 `firebase.ts` 有 `*.vercel.app` 域名上的 **same-origin authDomain override**——auth redirect 用当前 origin（不走 firebaseapp.com）。之前误以为 vercel.json 的 reverse proxy 让 OAuth 不用注册新域名，验证后**仍要**。
+
+### 老 URL 兼容性
+
+`micro-habits-zeta.vercel.app` **未删**——Vercel rename 后 alias 保留，仍指向最新 deploy。所以：
+- 用户手机老 PWA（指向 micro-habits-zeta）不会因为 rename 挂掉
+- 但新代码已 push 到 `loop-365.vercel.app`，新的 prod URL 是它
+
+### Memory 文件更新
+
+- `MEMORY.md` 索引：`micro-habits → Becoming` 那条改为 `loop → Loop`，路径 `~/loop`
+- `project_micro_habits.md` → 改名 `project_loop.md`，frontmatter + 内容更新
+- `feedback_personal_data_privacy.md` 里 `[[project-micro-habits]]` wiki-link → `[[project-loop]]`
+- 不动 append-only 日志（`history.jsonl` / `bash-commands.log` / `cost-tracker.log`）——历史审计记录保留旧路径
+
+### 反转的旧决策
+
+HANDOFF §2 原写："`package.json` `name` 字段保留 `micro-habits` 不改成 becoming（避免 Vercel slug 重链接）"——此决策**今晚显式反转**。新一致性更重要，Vercel rename 成本可控（CLI 一行 + 3 个 UI 点击）。
+
+### 留意
+
+- 老 alias `micro-habits-zeta.vercel.app` 仍活，可以**手动删**（dashboard）或留着（无伤大雅，省得未来 iOS PWA 重装）
+- 以后接自定义域名（如 `loop.app`）时再补加：Firebase 加新 domain、Google OAuth 加 redirect URI、Vercel 加 custom domain。今天的 3 步白名单更新是模板
+- bash-commands.log / history.jsonl 等日志里仍有 `/Users/jiaqizhong/micro-habits` 路径——历史记录，保留作审计
+
+---
+
 ## 6.-2 本次会话（2026-05-22 下午）—— 品牌重命名 Becoming → Loop + LoginPage 视觉重做
 
 **起因**：用户对 Becoming 这个名字"说不上来就是不来电"。
