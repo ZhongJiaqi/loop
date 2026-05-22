@@ -1,8 +1,8 @@
 # Becoming — 交接文档
 
-> 上次更新: 2026-05-05 18:10
-> 上次会话产出: 12 个功能 / 性能 commit 全部上线 + 1 个失败的 loading 优化方案被回滚 + 一个**仍未解决的 LoginPage 闪现 bug**（用户接受现状的 trade-off）
-> 当前 prod: `https://micro-habits-zeta.vercel.app`，main HEAD = `536a6f1`（revert 之后等价于 `b688016` 状态）
+> 上次更新: 2026-05-22
+> 5-05 之后增量（2026-05-05 ~ 2026-05-07）：messaging 三处超时兜底 + 老用户启动跳 splash 乐观渲染 + Firestore persistentLocalCache + index.html inline skeleton 分流首屏 + 修 cron 推送过滤 bug（task.type 字段已废弃导致 5-04 起静默漏推 3 天）
+> 当前 prod: `https://micro-habits-zeta.vercel.app`，main HEAD = `9d5a9bb`，working tree clean
 
 ---
 
@@ -11,6 +11,8 @@
 应用已从 `Micro Habits` 改名为 **Becoming**，引入 affirmations 作为一等内容类型（与 habits 并列）。本次会话产出：confetti 撒花回归、肯定语 4 层"心中一亮"动效、bundle 拆 5 vendor chunk + HistoryView 懒加载（main 76→68 KB gzip）、`?demo=1` demo 模式跳过 Firebase Auth、F 方案登录页（timeline + 闪烁 cursor）、Practice tagline 换 Will Durant、Hall view-computed 累计 21 次 + Achieved 第 21 次完成日、Today quiet streak 提醒（`X days quiet`）、首屏 branded splash + preconnect、Today loaded check 防"No practices yet"误闪、5 个新 demo-flow E2E。
 
 **未完全解决（trade-off 现状）**：iOS PWA 已登录用户 swipe-kill 重启时仍会**闪现 LoginPage 一帧**（Firebase 第一次 onAuthStateChanged 可能 fire user=null）。本会话尝试两轮 grace period 方案（1.5s / 8s+localStorage），8s 方案让首屏体感太慢被用户否决，已 revert 回 `b688016` 状态。下次会话需要更聪明的方案，**candidate**: `auth.authStateReady()` Promise (Firebase v10+) 或预渲染 user state from cookies。
+
+> **2026-05-07 update**：P0 已通过另一条路实质解决——`hadSession` localStorage 标记 + Firestore `persistentLocalCache` + index.html inline skeleton（详见下文 §6.0）。不引入定时器，不依赖 grace period，老用户启动 → 主框架 ≈ 0ms。代价是 session 真过期时会有"主框架 → LoginPage"反向闪烁（极少发生）。**待办**：iOS PWA 真机回归一次 swipe-kill 重启场景确认效果。
 
 ---
 
@@ -181,10 +183,7 @@ prod alias 切到 commit `536a6f1`（revert 后等价 b688016 — 12 个 fixes �
 ### 6.2 未完成 / 移交下次
 
 **P0（用户痛点 / 必须解决）**：
-- 🔴 **iOS PWA LoginPage 闪现** — 已登录用户 swipe-kill PWA 重打开仍闪 LoginPage 一帧。Grace period 路线被否决。**下次尝试方向**：
-  - `auth.authStateReady()` (Firebase v10+) 替代 `onAuthStateChanged` 第一次 callback 等真初始 state
-  - cookies-based marker（PWA standalone 比 localStorage 可靠）
-  - persist user state in serializable store + 启动时 hydrate（让 React 第一帧就有 user）
+- ✅ **iOS PWA LoginPage 闪现** — 2026-05-05 ~ 5-06 通过 `82c5958` + `7e7f043` 解决（详见 §6.0）。**待办**：iOS PWA 真机回归 swipe-kill 重启场景。
 
 **P1（功能层未做）**：
 - "名字" 残留 6 处（metadata.json 的 `微习惯 (Micro Habits)` / `useStore.ts:254` 注释 / `README.md` URL / `package.json` name / GitHub repo / Vercel slug `micro-habits-zeta`）— 用户明确说"先不改"
@@ -198,6 +197,24 @@ prod alias 切到 commit `536a6f1`（revert 后等价 b688016 — 12 个 fixes �
 - App Store / Play Store 上线（PWABuilder）
 - 数据导出/导入
 - 多设备同步可视化
+
+---
+
+## 6.0 5-05 之后增量（2026-05-05 ~ 2026-05-07）
+
+| 时间 | 内容 | Commit |
+|---|---|---|
+| **2026-05-05 18:45** | 修"开启提醒"按钮永远卡在请求中：给 `requestPermissionAndSubscribe` 三处 await 加超时（SW ready 8s / FCM subscribe 15s / Firestore setDoc 10s），抽出通用 `withTimeout(promise, ms, label)` 工具 + 4 单测；`NotificationPrompt` 改 `try/finally` 兜底 `requesting` 复位。根因：dev 模式 `vite-plugin-pwa` 默认不注册 SW，`navigator.serviceWorker.ready` **永不 resolve** | `6225e5b` |
+| **2026-05-05 19:11** | 老用户启动跳 Becoming splash 立即进主框架：引入 `hadSession` localStorage 标记 + 老用户启动时（authReady 未就绪但 hadSession=true）跳过 splash A 乐观渲染主框架 + `TodaySkeleton` 内联组件；onAuth 回调 user=null 时清掉 hadSession。**不引入定时器**，老用户启动 → 主框架 ≈ 0ms。代价：session 真过期时极少触发"主框架 → LoginPage"反向闪烁 | `82c5958` |
+| **2026-05-06 12:00** | 行业最佳实践收尾刷新闪现：①`firebase.ts` 用 `initializeFirestore + persistentLocalCache + persistentMultipleTabManager`，第二次访问 onSnapshot 从 IndexedDB cache 立即 emit；②`lib/auth.ts` 新增 `signOutAndClearCache(auth, db, reload)` 按 signOut → terminate → clearIndexedDbPersistence → reload 顺序清理（每步 try/catch 兜底确保 reload 总会执行）+ 3 单测；③`App.tsx` skeleton 条件改 `!demoMode && (!authReady \|\| !store.data.loaded)` 修复乐观渲染期 user=null 走 false 分支导致空态文案闪现；④`index.html` inline script 分流：老用户（becoming.hadSession=true）注入 skeleton HTML / 新用户保留 Becoming 品牌 splash。**效果**：刷新 → inline skeleton → React TodaySkeleton → IndexedDB cache emit → 真实任务，全程无 Becoming 闪烁 | `7e7f043` |
+| **2026-05-07 14:14** | 修 cron 推送过滤逻辑：commit `1fcb28e`（5-04）删除前端 `Task.type` 字段（'habit' \| 'one-time' 老区分），但 Cloud Function 一直依赖 `t.type === 'habit'` 过滤；新 task 不带 type → allTasks=[] → cron 误判"全部完成"→ 漏推 3 天。抽 `getIncompleteTaskNames + formatNotificationBody` 到独立纯函数 `functions/src/incomplete-tasks.ts`，移除 type 过滤，加 7 个单测覆盖核心场景（含 bug 复刻）。`firebase deploy --only functions` + `gcloud scheduler jobs run` 手动触发验证 10/10 推送成功 | `9d5a9bb` |
+
+**新增依赖 / 文件**：
+- `src/lib/timeout.ts` + `tests/timeout.test.ts` — 通用 promise 超时工具
+- `functions/src/incomplete-tasks.ts` + 单测 — cron 推送纯函数
+- `src/lib/auth.ts::signOutAndClearCache` — sign out 清缓存契约
+
+**5-07 当前总验证**：lint 0 错 / 40 单测全过 / working tree clean / main HEAD = `9d5a9bb`。
 
 ---
 
