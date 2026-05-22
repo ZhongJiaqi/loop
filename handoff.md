@@ -200,6 +200,77 @@ prod alias 切到 commit `536a6f1`（revert 后等价 b688016 — 12 个 fixes �
 
 ---
 
+## 6.-2 本次会话（2026-05-22 下午）—— 品牌重命名 Becoming → Loop + LoginPage 视觉重做
+
+**起因**：用户对 Becoming 这个名字"说不上来就是不来电"。
+
+### 品牌新名 Loop
+
+**理由**（chain 哲学完美契合）：
+- 用户补充哲学：`Thoughts → Feelings → Actions → Identity → 反过来强化 Thoughts`——这不是线性，是**反馈闭环**
+- 自荐 betterme（被否，BetterMe 是估值 $100M 的 health app，商标级冲突）/ routine（routine.co + App Store 撞名严重）
+- 最终选 Loop——闭环哲学、Atomic Habits "habit loop" 概念、L-O-O-P 4 字符对称、单音节中英都顺、App Store 无强冲突
+
+### Tagline 新句
+
+`Thoughts create feelings. Feelings drive actions. Actions shape you.`
+
+逐字对应中文"思想**创造**感觉，感觉**驱动**行动，行动**塑造**身份"——`create / drive / shape` 三个动词各司其职，节奏 1-1-1 对称。比"全 become"或"全 create"更精确（thoughts CAUSE feelings 是 CBT 模型，不是 metamorphosis）。
+
+### 莫比乌斯环视觉（用户提议）
+
+3-dot timeline 对 Becoming "线性时间" 成立，对 Loop "循环"语义错位。改用**莫比乌斯环 SVG**——拓扑特性是"沿曲面走一圈到对面再回来"，完美映射 actions 反过来影响 thoughts 的双向回路。
+
+### /design-review skill 5 个 findings 全修
+
+| Finding | 改动 | Commit |
+|---|---|---|
+| 001 HIGH | Möbius 拉入 main + Loop 紧贴 (24px gap)，删除独立 header | `180c110` |
+| 002 HIGH | Möbius 72→140px，stroke 1.6→2px，twist 缺口清晰 | `180c110` |
+| 003 MED | 按钮加官方 Google G 多色 icon + 内部 flex 布局 | `ff68476` |
+| 004 MED | Tagline 拆 3 行 + 最终 "you" 黑色 medium 微强调 | `ff68476` |
+| 005 POLISH | Möbius 加 dot 沿 figure-8 闭合路径 8s 循环（SVG `<animateMotion>` + `motion-reduce` 兜底） | `695c2d8` |
+
+诊断根因（FINDING-001）：原 `<header pt-14>` + `<main flex-1 justify-center>` 让 Möbius 浮在 viewport 顶端、Loop 中央垂直居中——desktop 实测 **183px 空白割裂**。改成 Möbius 进 main 内 Loop 正上方，整组当一个单元居中。
+
+### localStorage 优雅迁移
+
+- 新 key `loop.hadSession`，legacy `becoming.hadSession` 双读单写 + 自动清除
+- `index.html` inline script 同步：`localStorage.getItem('loop.hadSession') || localStorage.getItem('becoming.hadSession')`
+- TODO(2026-06-22): 30 天后移除 legacy fallback
+- 老用户启动新版仍走"乐观渲染"路径，不闪 splash
+
+### DayDetailSheet 排序修复（顺手）
+
+之前 sheet 只按 `completed → missed` 排，category 混乱。改为先按 category（affirmations 在上 / habits 在下，匹配 Today tab 布局），各组内 completed 先。
+
+### 改动文件
+
+- `src/components/LoginPage.tsx`（Möbius + tagline + Google G + dot animation 全集）
+- `src/App.tsx`、`index.html`、`vite.config.ts`、`README.md` （rename）
+- `src/useStore.ts` 不动（race fix 上次会话已落）
+- `src/useDemoStore.ts` 一处代码注释
+- `src/components/HistoryView.tsx`（DayDetailSheet 排序）
+- `tests/e2e/habits.spec.ts`、`tests/e2e/demo-flow.spec.ts`（断言更新）
+
+### 文案盘点（grep "becom" 确认无遗漏）
+
+- Will Durant tagline 保留（已对应 "Actions shape you"）
+- Affirmations / Habits empty states 中性，保留
+- Hall empty "Consistency builds character." 保留
+
+### 验证
+
+lint 0 / 43 单测 / 13 e2e 全过 / 用户真浏览器验收通过。
+
+### 留意
+
+- iOS PWA 真机回归 dot 沿环动画 + reduced-motion 兜底（未做）
+- 30 天后清理 legacy `becoming.hadSession` 读取
+- `.gstack-design-review/` 局部审计产物已加到 .gitignore（screenshots 用于评审，不入仓）
+
+---
+
 ## 6.-1 本次会话（2026-05-22）—— History 日历加"那天干了啥"明细
 
 **用户痛点**：History 日历只能看到"那天有没有完成"（绿色实心圆 / 灰色小点），看不到具体做了哪些 habit / affirmation。
