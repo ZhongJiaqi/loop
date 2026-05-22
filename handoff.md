@@ -1,18 +1,27 @@
-# Becoming — 交接文档
+# Loop — 交接文档
 
-> 上次更新: 2026-05-22
-> 5-05 之后增量（2026-05-05 ~ 2026-05-07）：messaging 三处超时兜底 + 老用户启动跳 splash 乐观渲染 + Firestore persistentLocalCache + index.html inline skeleton 分流首屏 + 修 cron 推送过滤 bug（task.type 字段已废弃导致 5-04 起静默漏推 3 天）
-> 当前 prod: `https://micro-habits-zeta.vercel.app`，main HEAD = `9d5a9bb`，working tree clean
+> 上次更新: 2026-05-22 晚
+> **新会话从这里开始**：项目已**5 层全栈 rename** 完成（Becoming → Loop）。新本地路径 `~/loop`，新 prod URL `https://loop-365.vercel.app`（老 `micro-habits-zeta.vercel.app` 仍兼容），新 repo `github.com/ZhongJiaqi/loop`，新 package name `loop`。main HEAD = `50aac07`，working tree clean。
+> 历史名字演化：**Micro Habits → Becoming（5-03）→ Loop（5-22）**。HANDOFF 历史段保留原品牌词作为时间戳锚点，请按段头日期判断当时品牌。
 
 ---
 
 ## 1. 一句话现状
 
-应用已从 `Micro Habits` 改名为 **Becoming**，引入 affirmations 作为一等内容类型（与 habits 并列）。本次会话产出：confetti 撒花回归、肯定语 4 层"心中一亮"动效、bundle 拆 5 vendor chunk + HistoryView 懒加载（main 76→68 KB gzip）、`?demo=1` demo 模式跳过 Firebase Auth、F 方案登录页（timeline + 闪烁 cursor）、Practice tagline 换 Will Durant、Hall view-computed 累计 21 次 + Achieved 第 21 次完成日、Today quiet streak 提醒（`X days quiet`）、首屏 branded splash + preconnect、Today loaded check 防"No practices yet"误闪、5 个新 demo-flow E2E。
+**品牌**：Loop。**哲学**：Thoughts → Feelings → Actions → Identity → 反过来强化 Thoughts（莫比乌斯闭环）。**产品形态**：两类一等内容——Affirmations（thoughts/feelings）+ Habits（actions），21-Day Hall = identity achievements。三 tab：Today / Practice / History。
 
-**未完全解决（trade-off 现状）**：iOS PWA 已登录用户 swipe-kill 重启时仍会**闪现 LoginPage 一帧**（Firebase 第一次 onAuthStateChanged 可能 fire user=null）。本会话尝试两轮 grace period 方案（1.5s / 8s+localStorage），8s 方案让首屏体感太慢被用户否决，已 revert 回 `b688016` 状态。下次会话需要更聪明的方案，**candidate**: `auth.authStateReady()` Promise (Firebase v10+) 或预渲染 user state from cookies。
+**最新一轮工作**（2026-05-22 一整天，10 个 commit）：
+1. **早上**：History 日历加 bottom sheet 看每日明细（仿微信状态历史思路）
+2. **修一个 race condition bug**：daily reset 因冷缓存触发会把已完成 task 用 `completed: false` 覆盖；加 getDoc 守卫修复
+3. **下午**：品牌 rename Becoming → Loop（含 LoginPage 视觉重做：莫比乌斯环 + V3 tagline + Google G icon + dot 沿环动画）
+4. **晚上**：项目级 5 层 rename（GitHub repo / Vercel project / Vercel alias / 本地目录 / package.json）+ Vercel SSO + Firebase Auth domain + Google OAuth redirect URI 全配通
 
-> **2026-05-07 update**：P0 已通过另一条路实质解决——`hadSession` localStorage 标记 + Firestore `persistentLocalCache` + index.html inline skeleton（详见下文 §6.0）。不引入定时器，不依赖 grace period，老用户启动 → 主框架 ≈ 0ms。代价是 session 真过期时会有"主框架 → LoginPage"反向闪烁（极少发生）。**待办**：iOS PWA 真机回归一次 swipe-kill 重启场景确认效果。
+**线上验收**：Google 登录链路通、数据完整、莫比乌斯动画运行中。
+
+**未做（明确留意）**：
+- 🟡 **iOS PWA 真机回归** 仍待——莫比乌斯 dot 动画 / drag-to-close sheet / Möbius 在小屏视觉 / hadSession 老 key 迁移 / 新 URL 重新装 PWA 后的 swipe-kill 重启表现，整套真机一次
+- 🟡 **2026-06-22 后**清理 `LEGACY_HAD_SESSION_KEY` (`becoming.hadSession`) 双读代码，TODO 已标
+- 🟢 **自定义域名 loop.app / getloop.app** 等是下一步可考虑的——template：今天的 3 步 UI 点击（Firebase 加 domain + Google OAuth 加 redirect URI + Vercel 加 custom domain）
 
 ---
 
@@ -28,16 +37,20 @@
 | Cloud Function | `dailyTaskReminder` (functions/) — 推送通知调度器 |
 | PWA | `vite-plugin-pwa`，含 push handler + SW |
 | Tests | vitest 单元 + Playwright E2E |
-| Repo | `https://github.com/ZhongJiaqi/micro-habits` (private) |
-| Branch | main（feat/becoming-impl 已 fast-forward merge 到 main） |
+| Repo | `https://github.com/ZhongJiaqi/loop` (private) |
+| 本地路径 | `~/loop`（原 `~/micro-habits`，5-22 晚 mv）|
+| Vercel 项目名 | `loop` |
+| Prod URL | `https://loop-365.vercel.app`（新主 alias）+ `https://micro-habits-zeta.vercel.app`（兼容老 PWA，未删）|
+| Branch | main |
 
 **重要的非常规配置**：
 
-- **Firestore database 是自定义 ID** (`ai-studio-...`)，不是 default。`firebase.json` 必须用数组形式 `firestore: [{ database: "...", rules: "firestore.rules" }]`
-- **Vercel 不连 GitHub**，每次部署用 `vercel --prod`（user CLI 已登录，token 偶尔失效，需 `vercel login`）
-- **Firebase Auth authorized domains** 必须含 `micro-habits-zeta.vercel.app`（已加，登录可用）
-- **Google OAuth client redirect URIs** 同时含 `firebaseapp.com/__/auth/handler`（默认）+ `micro-habits-zeta.vercel.app/__/auth/handler`（reverse proxy 兼容）
-- **package.json `name` 字段保留 `micro-habits`** 不改成 becoming（避免 Vercel slug 重链接，已在 spec §7 决定）
+- **Firestore database 是自定义 ID** (`ai-studio-ab924c4d-55bb-42f4-beb5-a1fb1f58cb4f`)，不是 default。`firebase.json` 必须用数组形式 `firestore: [{ database: "...", rules: "firestore.rules" }]`
+- **Vercel 不连 GitHub**，每次部署用 `vercel --prod`（user CLI 已登录，token 偶尔失效需 `vercel login`）
+- **Firebase Auth authorized domains** 含 `loop-365.vercel.app` + `micro-habits-zeta.vercel.app`（都已加）
+- **Google OAuth client redirect URIs** 含 `firebaseapp.com/__/auth/handler` + `loop-365.vercel.app/__/auth/handler` + `micro-habits-zeta.vercel.app/__/auth/handler`（前者默认 firebaseapp 兜底，后两者因为 `firebase.ts` 在 `*.vercel.app` 上有 same-origin authDomain override）
+- **package.json `name` = `loop`**（5-22 晚反转旧决策。私有项目 `"private": true`，与 npm 公开 `loop` 无冲突）
+- **Vercel Deployment Protection** = **Disabled**（5-22 晚关掉以让 prod URL 公开访问。老团队 SSO 默认开，新建 alias 默认 401）
 
 ---
 
@@ -562,17 +575,17 @@ c08d49f feat: 修 iOS 移动端登录失败 + 同步推送通知到 git
 ### 如何快速进入状态
 
 ```bash
-cd /Users/jiaqizhong/micro-habits
-git log --oneline -10           # 看最新 commits（应该最新两个是 Revert）
-git status                       # working tree 应该 clean
-npm run lint && npm test -- --run  # 快速 verify 健康（lint 0 + 26 unit）
+cd /Users/jiaqizhong/loop                 # ← 新路径，不是 ~/micro-habits 了
+git log --oneline -10                      # 应看到最新 50aac07 docs(handoff): §6.-3
+git status                                 # working tree 应 clean，main 与 origin 同步
+npm run lint && npm test -- --run          # 期望 lint 0 + 43 单测全过
 ```
 
-**新会话第一件事**：读这份 handoff §1 + §6 + §6.1 + §6.2 + §8.0，了解：
-1. 当前 prod 状态（commit `536a6f1`，等价 b688016 + handoff 更新）
-2. 上次会话哪些成功了 / 哪些失败被回滚了
-3. P0 待办：iOS PWA LoginPage 闪现（重要！grace period 路线已死，下次别走老路）
-4. 三条 feedback memory（test-before-deploy / no-extra-confirm / run-dev-server）
+**新会话第一件事**：读 handoff §1 + §6.-3（项目级 rename 史）+ §6.-2（品牌史）+ §6.-1（History sheet）。重点：
+1. **当前 prod**：`https://loop-365.vercel.app`（老 `micro-habits-zeta.vercel.app` 仍兼容）；main HEAD = `50aac07`
+2. **5 层全栈 rename 完成**：所有内部表面都叫 loop；老 alias 兼容老 PWA
+3. **未做事项**：iOS PWA 真机回归（莫比乌斯动画 / drag-to-close / 老 key 迁移 / 新 URL PWA 重装后表现），整套需要真机跑一遍
+4. **配置链记忆点**：Vercel SSO 已关 / Firebase Auth 含 loop-365.vercel.app / OAuth redirect URIs 含 loop-365.vercel.app/__/auth/handler。**未来加任何新域名**（如自定义域名）须同步这 3 处
 
 ### 各文档定位
 
@@ -599,8 +612,8 @@ firebase deploy --only firestore # firestore.rules deploy
 firebase deploy --only functions # Cloud Functions deploy
 
 # 回滚
-vercel alias set <old-deployment-url> micro-habits-zeta.vercel.app  # 快速 alias 切回
-git revert HEAD                                                     # 代码回滚
+vercel alias set <old-deployment-url> loop-365.vercel.app   # 快速 alias 切回（或 micro-habits-zeta）
+git revert HEAD                                              # 代码回滚
 ```
 
 ### Demo 模式（本地开发 / 演示）
@@ -614,8 +627,8 @@ http://localhost:3000?demo=1     # 跳过 Firebase Auth，预置 4 条数据
 ### 紧急联系
 
 - Firebase project: `gen-lang-client-0474013935` (Console: https://console.firebase.google.com/project/gen-lang-client-0474013935)
-- Vercel: project `micro-habits` in team `jiaqis-projects-c666d1ab`
-- GitHub: `https://github.com/ZhongJiaqi/micro-habits` (private)
+- Vercel: project `loop` in team `jiaqis-projects-c666d1ab`
+- GitHub: `https://github.com/ZhongJiaqi/loop` (private)
 - Firestore database: `ai-studio-ab924c4d-55bb-42f4-beb5-a1fb1f58cb4f`
 
 ### 下一步可能的工作（用户决定优先级）
