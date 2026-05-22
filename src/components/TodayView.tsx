@@ -256,6 +256,7 @@ export default function TodayView({ store }: TodayViewProps) {
       <AnimatePresence>
         {affirmations.length > 0 && (
           <motion.div
+            key="affirmations-group"
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
@@ -276,6 +277,7 @@ export default function TodayView({ store }: TodayViewProps) {
 
         {habits.length > 0 && (
           <motion.div
+            key="habits-group"
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
@@ -295,7 +297,7 @@ export default function TodayView({ store }: TodayViewProps) {
         )}
 
         {tasksToday.length === 0 && (
-          <div className="py-16 text-center">
+          <div key="empty-state" className="py-16 text-center">
             <p className="font-serif italic text-sm text-[#B0ADA5]">
               No practices yet. Set up your first in Practice.
             </p>

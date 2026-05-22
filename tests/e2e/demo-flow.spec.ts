@@ -15,6 +15,20 @@ import { test, expect } from '@playwright/test';
 const DEMO_URL = 'http://localhost:4173/?demo=1';
 
 test.describe('Demo mode (logged-in UI surrogate)', () => {
+  test('Demo cold-load fires zero React warnings or errors', async ({ page }) => {
+    const errors: string[] = [];
+    page.on('console', (msg) => {
+      if (msg.type() === 'error') errors.push(msg.text());
+    });
+    await page.goto(DEMO_URL);
+    await page.waitForSelector('h1', { timeout: 15000 });
+    // Wait for affirmations + habits + section labels to settle
+    await expect(page.getByText('Affirmations', { exact: true })).toBeVisible();
+    await expect(page.getByText('Habits', { exact: true })).toBeVisible();
+    await page.waitForTimeout(400);
+    expect(errors, `Unexpected console errors:\n${errors.join('\n')}`).toEqual([]);
+  });
+
   test('Today shows 2 affirmations + 2 habits sections', async ({ page }) => {
     await page.goto(DEMO_URL);
     await page.waitForSelector('h1', { timeout: 15000 });
