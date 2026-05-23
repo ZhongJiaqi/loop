@@ -1,7 +1,7 @@
 # Loop — 交接文档
 
-> 上次更新: 2026-05-23 下午
-> **新会话从这里开始**：项目稳定运行在 `https://loop-365.vercel.app`（**已升级为 Vercel project domain，push 自动 promote 不用手动**）。main HEAD = `5f9cade`，working tree clean。lint 0 / 51 单测 / 15 e2e 全过。**iOS PWA 真机回归 5-23 用户验收通过**（新 Möbius 图标 / 日期抽屉滚动 / 网络异常 banner / dot 动画 / hadSession 老 key 迁移 整套一次过）。
+> 上次更新: 2026-05-23 晚
+> **新会话从这里开始**：项目稳定运行在 `https://loop-365.vercel.app`（**Vercel project domain，`vercel --prod` 部署完后自动 promote**；注意：**Vercel 不连 GitHub auto-deploy**，git push 后仍需手动 `vercel --prod`）。main HEAD = `3018e02`，working tree clean。lint 0 / 51 单测 / 16 e2e 全过。**iOS PWA 真机回归 5-23 用户验收通过**。最近一次发版：5-23 晚 tagline 协奏（Today 顶部加 Durant，Practice 改 *Decide what to repeat.*）。
 > 历史名字演化：**Micro Habits → Becoming（5-03）→ Loop（5-22）**。HANDOFF 历史段保留原品牌词作为时间戳锚点，请按段头日期判断当时品牌。
 
 ---
@@ -214,6 +214,58 @@ prod alias 切到 commit `536a6f1`（revert 后等价 b688016 — 12 个 fixes �
 - App Store / Play Store 上线（PWABuilder）
 - 数据导出/导入
 - 多设备同步可视化
+
+---
+
+## 6.-5 本次会话（2026-05-23 晚）—— iOS PWA 真机回归验收 + 三页 tagline 协奏
+
+**起因**：用户在手机上验收 5-23 早一整批改动通过（新图标 / 滚动 / 网络 banner / dot 动画 / hadSession 迁移），关闭 P0 历史最后一根尾巴。然后想改 Today / Practice 页面文案。
+
+### 1. iOS PWA 真机回归验收（本地 commit `ba698f6`，未单独 push，混在后面代码 push 里一起推上去）
+
+- HANDOFF 头部 / §1 未做项 / §6.2 P0 三处同步 "iOS PWA 真机回归 5-23 用户验收通过"
+- 按 `feedback_handoff_local_only` 默认本地 commit 不 push
+
+### 2. 三页 tagline 协奏（`3018e02`，已 push + 已 deploy）
+
+**改动**：
+- Today 顶部新增 italic serif tagline `You are what you repeatedly do.` (Will Durant，从 Practice 顶部搬过来)
+- Practice 顶部 tagline 改为 `Decide what to repeat.`（Loop 原创）
+- e2e 拆成 Today / Practice 两个独立 tagline 断言（`tests/e2e/demo-flow.spec.ts`）
+
+**最终三页协奏**（写下来便于未来护住调性，避免在某次小改里破坏整体）：
+
+```
+[Login]    Every action you take is a vote for the type of person
+            you wish to become.          — James Clear, LoginPage
+
+[Today]    You are what you repeatedly do.  — Will Durant, Today 顶部
+
+[Practice] Decide what to repeat.            — Loop 原创, Practice 顶部
+```
+
+**为什么是 Decide 不是 Choose / Define / Add / Create**（取舍依据，未来想改时先重读）：
+- **Choose** 微瑕——Practice 不是从已有 list 挑，是输入新的，"choose" 不严丝合缝
+- **Add / Create** 沦为 button label 复读（按钮已经叫 `Add Habit`），tagline 应该高一层说"这页意味着什么"
+- **Define** 解决了 Choose 的微瑕，但调性偏冷（工程师/系统化）
+- **Decide** ✅ 跟 LoginPage 的 *vote* 强呼应（投票本质就是 decide）+ 跟 Today *do* 形成 Decide → Do 对偶 + 调性是"自我主宰"的口语温度
+
+样式：三处统一 `text-xs text-[#8C8C8C] leading-relaxed font-light tracking-wide italic`。
+
+**验证**：lint 0 / 51 单测 / 16 e2e（新增 2 条独立 tagline 断言）/ Vercel prod deploy `dpl_6DrwQnK4...` READY / curl 验证 `loop-365.vercel.app/assets/index-CE2psq0I.js` 同时含 Durant + Decide，老 Choose 已消失。
+
+### 3. 厘清一个上次会话遗留的认知误解
+
+之前 HANDOFF 头部 / §6.-4 把 *"Vercel project domain → push 自动 promote 不用手动"* 写得有歧义。真相：
+- **`vercel domains add` 注册成 project domain 后**，每次 `vercel --prod` 部署完成时 domain 自动 promote 到新 deployment
+- **但 git push 不会触发 deploy**——Vercel 项目没连 GitHub auto-deploy（HANDOFF §2 早写过）
+
+所以完整发版流程仍然是：`git push`（GitHub 备份）→ `vercel --prod`（手动触发部署，project domain 自动跟随）。头部已修正措辞。
+
+### 4. 收尾用户视角验收路径
+打开 `loop-365.vercel.app`（PWA 有 SW 缓存，可能要冷启动）：
+- Today 顶部 italic serif 小字 *You are what you repeatedly do.*
+- 切 Practice 顶部 italic serif 小字 *Decide what to repeat.*
 
 ---
 
