@@ -1,7 +1,7 @@
 # Loop — 交接文档
 
-> 上次更新: 2026-05-22 晚
-> **新会话从这里开始**：项目已**5 层全栈 rename** 完成（Becoming → Loop）。新本地路径 `~/loop`，新 prod URL `https://loop-365.vercel.app`（老 `micro-habits-zeta.vercel.app` 仍兼容），新 repo `github.com/ZhongJiaqi/loop`，新 package name `loop`。main HEAD = `50aac07`，working tree clean。
+> 上次更新: 2026-05-23 早
+> **新会话从这里开始**：项目稳定运行在 `https://loop-365.vercel.app`（**已升级为 Vercel project domain，push 自动 promote 不用手动**）。main HEAD = `948c8f8`，working tree clean。lint 0 / 51 单测 / 15 e2e 全过。新增网络异常 UX banner + 新 Möbius 品牌图标。
 > 历史名字演化：**Micro Habits → Becoming（5-03）→ Loop（5-22）**。HANDOFF 历史段保留原品牌词作为时间戳锚点，请按段头日期判断当时品牌。
 
 ---
@@ -10,18 +10,21 @@
 
 **品牌**：Loop。**哲学**：Thoughts → Feelings → Actions → Identity → 反过来强化 Thoughts（莫比乌斯闭环）。**产品形态**：两类一等内容——Affirmations（thoughts/feelings）+ Habits（actions），21-Day Hall = identity achievements。三 tab：Today / Practice / History。
 
-**最新一轮工作**（2026-05-22 一整天，10 个 commit）：
-1. **早上**：History 日历加 bottom sheet 看每日明细（仿微信状态历史思路）
-2. **修一个 race condition bug**：daily reset 因冷缓存触发会把已完成 task 用 `completed: false` 覆盖；加 getDoc 守卫修复
-3. **下午**：品牌 rename Becoming → Loop（含 LoginPage 视觉重做：莫比乌斯环 + V3 tagline + Google G icon + dot 沿环动画）
-4. **晚上**：项目级 5 层 rename（GitHub repo / Vercel project / Vercel alias / 本地目录 / package.json）+ Vercel SSO + Firebase Auth domain + Google OAuth redirect URI 全配通
+**最新一轮工作**（2026-05-23 早，6 个 commit）：
+1. **修 History 日期抽屉滚动 bug**（`8ffaa69`）：`drag="y"` 和 `overflow-y-auto` 在同一 motion.div 上，framer-motion drag 监听器吞掉垂直 touch → 内容滚不动。拆 drag handle + 独立 scroll container 修
+2. **加 MIT License**（`f8c9c3d`）：LICENSE + README badge + package.json `"license": "MIT"`
+3. **新 PWA 图标 Möbius 品牌符号**（`bc3ac53`）：源 SVG `public/icon.svg` + favicon.ico 多分辨率 / apple-touch / 192&512 + Android maskable 变体。manifest 加 `purpose: any | maskable`，theme_color 从 `#F9F8F6` 改 `#F5F2EC`
+4. **Vercel project domain 升级**（CLI，无 commit）：`loop-365.vercel.app` 之前是 `vercel alias set` 钉死单次部署的，每次 push 不自动 promote。改用 `vercel domains add` 注册成 project domain → 现在每次 production deploy 自动跟随。playbook memory 已更新
+5. **网络异常 UX banner**（`7d4a3fb`）：事故 5-23 早用户手机代理关闭，`firestore.googleapis.com` 被墙，Today 看空。加 `useNetworkStatus` hook（监听 `navigator.online/offline` + Firestore 6s 超时）+ `NetworkStatusBanner` 暖色 amber 提示条，离线/Firestore 不可达时显示，恢复自动消失。7 单测覆盖
+6. **修 React duplicate-key 警告**（`948c8f8`）：TodayView 内层 `<AnimatePresence>` 包 3 个 conditional children 都没显式 key，两组数据同时存在时 motion.div 同框冲突 → 派默认 `""` key。加 `affirmations-group / habits-group / empty-state` 显式 key。回归保护：单测（@testing-library/react + console.error spy）+ e2e（zero console error 守护）
 
-**线上验收**：Google 登录链路通、数据完整、莫比乌斯动画运行中。
+**线上验收**：Vercel `bc3ac53` 之后 deploy 自动 promote 到 `loop-365.vercel.app`（curl 验证 hash 一致）。Mac 浏览器看到新 Möbius favicon。
 
 **未做（明确留意）**：
-- 🟡 **iOS PWA 真机回归** 仍待——莫比乌斯 dot 动画 / drag-to-close sheet / Möbius 在小屏视觉 / hadSession 老 key 迁移 / 新 URL 重新装 PWA 后的 swipe-kill 重启表现，整套真机一次
+- 🟡 **iOS PWA 真机回归** 仍待——新 Möbius 图标 / 日期抽屉滚动手感 / 网络异常 banner / 莫比乌斯 dot 动画 / hadSession 老 key 迁移 整套真机一次。**iOS PWA 主屏图标**烧死在系统层，必须长按删除旧 Loop → Safari 重新 Add to Home Screen 才能换新图标
 - 🟡 **2026-06-22 后**清理 `LEGACY_HAD_SESSION_KEY` (`becoming.hadSession`) 双读代码，TODO 已标
-- 🟢 **自定义域名 loop.app / getloop.app** 等是下一步可考虑的——template：今天的 3 步 UI 点击（Firebase 加 domain + Google OAuth 加 redirect URI + Vercel 加 custom domain）
+- 🟡 `public/icons/v2/` 留下了 6 个图标候选 + `preview.html` 对比页，作为设计存档；未来想换风格直接挑别的或基于这套套色再衍生
+- 🟢 **自定义域名 loop.app / getloop.app** 等是下一步可考虑的——template：3 步 UI 点击（Firebase 加 domain + Google OAuth 加 redirect URI + Vercel 加 custom domain）
 
 ---
 
@@ -47,6 +50,7 @@
 
 - **Firestore database 是自定义 ID** (`ai-studio-ab924c4d-55bb-42f4-beb5-a1fb1f58cb4f`)，不是 default。`firebase.json` 必须用数组形式 `firestore: [{ database: "...", rules: "firestore.rules" }]`
 - **Vercel 不连 GitHub**，每次部署用 `vercel --prod`（user CLI 已登录，token 偶尔失效需 `vercel login`）
+- **`loop-365.vercel.app` 是 project domain**（不是 alias），从 5-23 起每次 production deploy 自动 promote，不用再手动 `vercel alias set`。如果未来又看到 push 后图标/资源不更新，第一反应：`vercel alias ls | grep <domain>` 看是否还指向旧 deployment
 - **Firebase Auth authorized domains** 含 `loop-365.vercel.app` + `micro-habits-zeta.vercel.app`（都已加）
 - **Google OAuth client redirect URIs** 含 `firebaseapp.com/__/auth/handler` + `loop-365.vercel.app/__/auth/handler` + `micro-habits-zeta.vercel.app/__/auth/handler`（前者默认 firebaseapp 兜底，后两者因为 `firebase.ts` 在 `*.vercel.app` 上有 same-origin authDomain override）
 - **package.json `name` = `loop`**（5-22 晚反转旧决策。私有项目 `"private": true`，与 npm 公开 `loop` 无冲突）
@@ -210,6 +214,59 @@ prod alias 切到 commit `536a6f1`（revert 后等价 b688016 — 12 个 fixes �
 - App Store / Play Store 上线（PWABuilder）
 - 数据导出/导入
 - 多设备同步可视化
+
+---
+
+## 6.-4 本次会话（2026-05-23 早）—— 滚动 bug / License / 图标 / 网络异常 UX / dup-key 警告
+
+**起因**：用户连续报小 bug + 改进诉求，一上午连出 6 个 commit。
+
+### 1. History 日期抽屉滚动 bug（`8ffaa69`）
+- **症状**：日历点开某天的 bottom sheet 内容长时无法上下滚动
+- **根因**：`<motion.div drag="y" ... className="...overflow-y-auto">` —— framer-motion 的 drag 监听器**拦截**了垂直触摸手势，内容根本拿不到 scroll
+- **修**：`useDragControls()`，外层 motion.div `dragListener={false}`，把 drag 只挂到顶部把手（`onPointerDown={(e) => dragControls.start(e)}` + `touch-none`），内容区改成独立的 `overflow-y-auto overscroll-contain` flex-1 div
+- **回归 e2e**：「Day detail sheet has scrollable content region separate from drag handle」断言外层非滚动容器 + 内层可滚
+
+### 2. MIT License（`f8c9c3d`）
+- LICENSE 全文 / README badge / package.json `"license": "MIT"`
+
+### 3. 新 PWA 图标 Möbius（`bc3ac53`）
+- **背景**：原 PNG 是 micro-habits 时代旧资产，跟新品牌（LoginPage 莫比乌斯环）脱节
+- **流程**：生成 6 个 SVG 变体 + `public/icons/v2/preview.html` 对比页 → 用户挑 01（奶油底 + 黑色细描）→ `sips` 把 SVG 渲染成全套 PNG
+- **资产**：`public/icon.svg`（源） / `favicon.ico`（16/32/48 多分辨率）/ `apple-touch-icon.png` 180×180 / `icon-192/512x512.png` / `icon-maskable-192/512x512.png`（Android maskable，符号收进 80% 安全区）
+- **manifest**：icons 加 `purpose: any | maskable`；theme_color/background_color `#F9F8F6` → `#F5F2EC`
+- **e2e 跟更**：habits.spec 断言 icons 数从 2 改 4 + 多分辨率验证
+
+### 4. Vercel project domain 升级（无 commit，CLI 操作）
+- **症状**：push `bc3ac53` 后 `https://loop-365.vercel.app/icon-512x512.png` curl 出来的 hash 还是旧的；最新 deployment 源 URL 是新的；说明 alias 没自动 promote
+- **诊断**：`vercel alias ls` 看到 `loop-365.vercel.app` 还指向 1 小时前的旧 deployment `loop-31ngg2r4y`，而 `micro-habits-zeta.vercel.app`（53 天前加的）反而跟到了最新 → 不对称
+- **根因**：`vercel alias set <specific-deployment> <domain>` 把 alias 钉死在那次部署，每次 push 不会自动覆盖；`vercel domains add <domain>` 才是注册成 project domain 自动跟随
+- **修**：`vercel domains add loop-365.vercel.app` → 从此自动 promote
+- **memory**：`reference_vercel_pwa_rename_playbook.md` 第 3 步从 `alias set` 改成 `domains add`，"已踩坑警示" 段加上完整诊断流程
+
+### 5. 网络异常 UX banner（`7d4a3fb`）
+- **事故**：5-23 早用户手机代理关，Today 页空，以为是 bug，反馈"今天 today 是空的"
+- **诊断**：代码层任务创建全在客户端 daily reset effect，无服务端 cron。代理关 → `firestore.googleapis.com` 被墙 → `onSnapshot` 永不 fire → `data.loaded` 永远 false → TodayView 过滤 today 拿不到 task → 看似空
+- **修**：
+  - `src/lib/useNetworkStatus.ts`：hook 监听 `navigator.online/offline` 事件 + 在 `ready && !dataLoaded` 持续 6s 时判定 Firestore 不可达
+  - `src/components/NetworkStatusBanner.tsx`：暖色 amber tone banner，`role="status"`，离线时显示「设备未联网，数据无法同步」，Firestore 不通显示「无法连接到服务器，请检查代理或网络」
+  - App.tsx 挂在 header 和 NotificationPrompt 之间
+- **7 单测**（jsdom + renderHook）覆盖状态机各分支
+
+### 6. React duplicate-key 警告（`948c8f8`）
+- **症状**：dev 模式 console 每次冷加载 4 条 "Encountered two children with the same key, ``"
+- **诊断手法**：patch `console.error` 捕获 `%s` 占位符的真实值 → 是空字符串 `""`
+- **根因**：TodayView 内层 `<AnimatePresence>` 包了 3 个 conditional children（affirmations / habits / empty-state），全没显式 `key`。demo 场景两组都有数据时两个 motion.div 同框存在，AnimatePresence 给它们派默认 `""` key → React 冲突告警
+- **修**：每个分支加 `key="affirmations-group" / "habits-group" / "empty-state"`
+- **回归**：
+  - `tests/TodayView.test.tsx`：@testing-library/react + `vi.spyOn(console, 'error')`，断言 dup-key 警告 = 0（**注意**：vitest jsdom 默认 NODE_ENV 不强制 production，React dev 警告会触发，所以这测试能稳定捕到）
+  - `tests/e2e/demo-flow.spec.ts`：「Demo cold-load fires zero React warnings or errors」守护测试（preview build 跑，生产里 dup-key 警告被剥离但保 0 error 是 DoD）
+
+### 用户角度的下一步验证清单
+1. **Mac 浏览器**：Cmd+Shift+R 强刷一次，favicon 应是新 Möbius
+2. **iOS PWA**：长按删除旧 Loop → Safari 打开 `loop-365.vercel.app` → 分享 → Add to Home Screen，主屏图标更新
+3. **断网测试**：iPhone 关代理 → 打开 app → 6 秒内顶部应出现「无法连接到服务器，请检查代理或网络」banner，恢复后自动消失
+4. **日历滚动**：History 点某天打开抽屉 → 内容区上下应能顺滑滚动 + 顶部把手下拉关闭
 
 ---
 
