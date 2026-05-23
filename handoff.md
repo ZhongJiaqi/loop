@@ -1,7 +1,7 @@
 # Loop — 交接文档
 
-> 上次更新: 2026-05-23 早
-> **新会话从这里开始**：项目稳定运行在 `https://loop-365.vercel.app`（**已升级为 Vercel project domain，push 自动 promote 不用手动**）。main HEAD = `948c8f8`，working tree clean。lint 0 / 51 单测 / 15 e2e 全过。新增网络异常 UX banner + 新 Möbius 品牌图标。
+> 上次更新: 2026-05-23 下午
+> **新会话从这里开始**：项目稳定运行在 `https://loop-365.vercel.app`（**已升级为 Vercel project domain，push 自动 promote 不用手动**）。main HEAD = `5f9cade`，working tree clean。lint 0 / 51 单测 / 15 e2e 全过。**iOS PWA 真机回归 5-23 用户验收通过**（新 Möbius 图标 / 日期抽屉滚动 / 网络异常 banner / dot 动画 / hadSession 老 key 迁移 整套一次过）。
 > 历史名字演化：**Micro Habits → Becoming（5-03）→ Loop（5-22）**。HANDOFF 历史段保留原品牌词作为时间戳锚点，请按段头日期判断当时品牌。
 
 ---
@@ -21,7 +21,7 @@
 **线上验收**：Vercel `bc3ac53` 之后 deploy 自动 promote 到 `loop-365.vercel.app`（curl 验证 hash 一致）。Mac 浏览器看到新 Möbius favicon。
 
 **未做（明确留意）**：
-- 🟡 **iOS PWA 真机回归** 仍待——新 Möbius 图标 / 日期抽屉滚动手感 / 网络异常 banner / 莫比乌斯 dot 动画 / hadSession 老 key 迁移 整套真机一次。**iOS PWA 主屏图标**烧死在系统层，必须长按删除旧 Loop → Safari 重新 Add to Home Screen 才能换新图标
+- ✅ **iOS PWA 真机回归** — 2026-05-23 用户真机一次性验收通过（新 Möbius 图标 / 日期抽屉滚动手感 / 网络异常 banner / 莫比乌斯 dot 动画 / hadSession 老 key 迁移）。**提醒**：未来换图标仍需用户长按删除旧 Loop → Safari 重新 Add to Home Screen，iOS 主屏图标烧死在系统层
 - 🟡 **2026-06-22 后**清理 `LEGACY_HAD_SESSION_KEY` (`becoming.hadSession`) 双读代码，TODO 已标
 - 🟡 `public/icons/v2/` 留下了 6 个图标候选 + `preview.html` 对比页，作为设计存档；未来想换风格直接挑别的或基于这套套色再衍生
 - 🟢 **自定义域名 loop.app / getloop.app** 等是下一步可考虑的——template：3 步 UI 点击（Firebase 加 domain + Google OAuth 加 redirect URI + Vercel 加 custom domain）
@@ -200,7 +200,7 @@ prod alias 切到 commit `536a6f1`（revert 后等价 b688016 — 12 个 fixes �
 ### 6.2 未完成 / 移交下次
 
 **P0（用户痛点 / 必须解决）**：
-- ✅ **iOS PWA LoginPage 闪现** — 2026-05-05 ~ 5-06 通过 `82c5958` + `7e7f043` 解决（详见 §6.0）。**待办**：iOS PWA 真机回归 swipe-kill 重启场景。
+- ✅ **iOS PWA LoginPage 闪现** — 2026-05-05 ~ 5-06 通过 `82c5958` + `7e7f043` 解决（详见 §6.0）。**已验收**：2026-05-23 用户真机回归通过（含 swipe-kill 重启场景）。
 
 **P1（功能层未做）**：
 - "名字" 残留 6 处（metadata.json 的 `微习惯 (Micro Habits)` / `useStore.ts:254` 注释 / `README.md` URL / `package.json` name / GitHub repo / Vercel slug `micro-habits-zeta`）— 用户明确说"先不改"
