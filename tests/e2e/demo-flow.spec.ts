@@ -60,14 +60,24 @@ test.describe('Demo mode (logged-in UI surrogate)', () => {
     ).toBeVisible({ timeout: 3000 });
   });
 
-  test('Practice tab shows Will Durant tagline', async ({ page }) => {
+  test('Today tab shows Will Durant tagline', async ({ page }) => {
+    await page.goto(DEMO_URL);
+    await page.waitForSelector('h1', { timeout: 15000 });
+
+    // Today is the default landing tab after demo load.
+    await expect(page.getByText('You are what you repeatedly do.')).toBeVisible({
+      timeout: 3000,
+    });
+  });
+
+  test('Practice tab shows "Decide what to repeat." tagline', async ({ page }) => {
     await page.goto(DEMO_URL);
     await page.waitForSelector('h1', { timeout: 15000 });
 
     // Bottom-nav PRACTICE tab
     await page.getByRole('button', { name: /PRACTICE/i }).click();
 
-    await expect(page.getByText('You are what you repeatedly do.')).toBeVisible({
+    await expect(page.getByText('Decide what to repeat.')).toBeVisible({
       timeout: 3000,
     });
   });

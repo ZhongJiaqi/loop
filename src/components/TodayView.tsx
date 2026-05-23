@@ -232,6 +232,12 @@ export default function TodayView({ store }: TodayViewProps) {
 
   return (
     <div className="pb-12">
+      <div className="mb-10 pt-4">
+        <p className="text-xs text-[#8C8C8C] leading-relaxed font-light tracking-wide italic">
+          You are what you repeatedly do.
+        </p>
+      </div>
+
       <AnimatePresence>
         {allCompleted && (
           <motion.div
