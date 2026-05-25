@@ -5,10 +5,39 @@ import { withTimeout } from './timeout';
 const VAPID_PUBLIC_KEY = import.meta.env.VITE_FIREBASE_VAPID_KEY;
 
 // 各步骤超时，确保 UI 不会永远卡在"请求中..."。
-// SW 注册较快，给 8s；FCM 订阅可能受网络环境影响，给 15s；Firestore 写入给 10s。
-const SW_READY_TIMEOUT_MS = 8000;
+// SW 首次访问 / 刚 deploy 强刷时 installing→activating 可能要 20s 才 active；
+// FCM 订阅可能受网络环境影响给 15s；Firestore 写入给 10s。
+const SW_READY_TIMEOUT_MS = 20000;
 const PUSH_SUBSCRIBE_TIMEOUT_MS = 15000;
 const FIRESTORE_WRITE_TIMEOUT_MS = 10000;
+
+/**
+ * Wait for the page's Service Worker to reach the active state.
+ *
+ * `navigator.serviceWorker.ready` resolves immediately if a SW is active,
+ * otherwise it waits — potentially forever if registration failed. We
+ * distinguish three states up front so error messages tell the user what
+ * to actually do:
+ *
+ * - No registration at all  → "SW 未注册，请刷新页面"（vite-plugin-pwa fails
+ *   silently in dev, or SW file 404 in prod; refresh re-triggers register）
+ * - Already active          → return immediately
+ * - installing / waiting    → race against `ready` with a generous timeout
+ */
+async function waitForServiceWorkerReady(): Promise<ServiceWorkerRegistration> {
+  const reg = await navigator.serviceWorker.getRegistration();
+  if (!reg) {
+    throw new Error('Service Worker 尚未注册，请刷新页面后重试');
+  }
+  if (reg.active && !reg.installing && !reg.waiting) {
+    return reg;
+  }
+  return withTimeout(
+    navigator.serviceWorker.ready,
+    SW_READY_TIMEOUT_MS,
+    'Service Worker 初始化超时，请刷新页面后重试',
+  );
+}
 
 function urlBase64ToUint8Array(base64String: string): Uint8Array {
   const padding = '='.repeat((4 - (base64String.length % 4)) % 4);
@@ -52,14 +81,10 @@ export async function requestPermissionAndSubscribe(userId: string): Promise<Pus
 
   if (!VAPID_PUBLIC_KEY) throw new Error('VAPID_KEY 未配置');
 
-  // Use the PWA service worker (which includes push-handler.js via importScripts)
-  // dev 模式下 PWA 默认未启用 / 注册失败时，serviceWorker.ready 会永远挂起，
-  // 必须超时降级以避免 UI 卡死。
-  const swReg = await withTimeout(
-    navigator.serviceWorker.ready,
-    SW_READY_TIMEOUT_MS,
-    'Service Worker 未就绪',
-  );
+  // Use the PWA service worker (which includes push-handler.js via importScripts).
+  // See waitForServiceWorkerReady — distinguishes "not registered" vs
+  // "still activating" vs "active" to give actionable error messages.
+  const swReg = await waitForServiceWorkerReady();
 
   let subscription = await swReg.pushManager.getSubscription();
   if (!subscription) {

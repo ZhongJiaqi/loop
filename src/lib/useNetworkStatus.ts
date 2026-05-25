@@ -1,6 +1,9 @@
 import { useEffect, useState } from 'react';
 
-const FIRESTORE_TIMEOUT_MS = 6000;
+// 国内移动网络 / 无 IndexedDB 缓存 / SW 刚更新冷启动 等场景下，Firestore 首次
+// onSnapshot 回声偶尔慢于预期但仍能通。把判定窗口拉到 15s 让正常慢链路通过，
+// 仍超时再报 banner — 网络真挂掉时 15s 也足以判定。
+const FIRESTORE_TIMEOUT_MS = 15000;
 
 export interface NetworkStatus {
   online: boolean;

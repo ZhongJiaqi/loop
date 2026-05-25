@@ -75,8 +75,14 @@ describe('useNetworkStatus', () => {
       useNetworkStatus({ ready: true, dataLoaded: false }),
     );
     expect(result.current.firestoreReachable).toBeNull();
+    // Still null at 14s — under the 15s threshold (slow-but-fine networks pass).
     act(() => {
-      vi.advanceTimersByTime(7000);
+      vi.advanceTimersByTime(14000);
+    });
+    expect(result.current.firestoreReachable).toBeNull();
+    // Past 15s — banner should fire.
+    act(() => {
+      vi.advanceTimersByTime(2000);
     });
     expect(result.current.firestoreReachable).toBe(false);
   });
