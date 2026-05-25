@@ -205,12 +205,25 @@ export default function TodayView({ store }: TodayViewProps) {
   });
   const getMissed = (habitId: string) => missedDaysByHabitId.get(habitId) ?? 0;
 
-  const affirmations = tasksToday.filter(
-    (t: Task) => habitCategoryMap.get(t.habitId) === "affirmation",
-  );
-  const habits = tasksToday.filter(
-    (t: Task) => habitCategoryMap.get(t.habitId) !== "affirmation",
-  );
+  // Sort today's tasks by the user-chosen habit order (Practice page reorder).
+  // Within each section: explicit sortIndex first, then legacy items by createdAt.
+  const sortByHabitOrder = (a: Task, b: Task) => {
+    const ha = habitById.get(a.habitId);
+    const hb = habitById.get(b.habitId);
+    const ai = ha?.sortIndex;
+    const bi = hb?.sortIndex;
+    if (typeof ai === "number" && typeof bi === "number") return ai - bi;
+    if (typeof ai === "number") return -1;
+    if (typeof bi === "number") return 1;
+    return (ha?.createdAt ?? "").localeCompare(hb?.createdAt ?? "");
+  };
+
+  const affirmations = tasksToday
+    .filter((t: Task) => habitCategoryMap.get(t.habitId) === "affirmation")
+    .sort(sortByHabitOrder);
+  const habits = tasksToday
+    .filter((t: Task) => habitCategoryMap.get(t.habitId) !== "affirmation")
+    .sort(sortByHabitOrder);
 
   const allCompleted =
     tasksToday.length > 0 && tasksToday.every((t: Task) => t.completed);

@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { format } from 'date-fns';
 import { MicroHabit, Task, MicroHabitCategory } from './types';
+import { nextSortIndex, reorderPlan } from './lib/reorder';
 
 const DEMO_USER_ID = 'demo-user';
 
@@ -11,10 +12,10 @@ function makeInitial() {
   const createdAt = new Date(now.getTime() - 30 * 86400000).toISOString();
 
   const habits: MicroHabit[] = [
-    { id: 'a1', title: 'I am enough.',          createdAt, active: true, userId: DEMO_USER_ID, category: 'affirmation' },
-    { id: 'a2', title: 'Today, I choose calm.', createdAt, active: true, userId: DEMO_USER_ID, category: 'affirmation' },
-    { id: 'h1', title: '散步 30 分钟',          createdAt, active: true, userId: DEMO_USER_ID, category: 'habit' },
-    { id: 'h2', title: '读书 20 页',            createdAt, active: true, userId: DEMO_USER_ID, category: 'habit' },
+    { id: 'a1', title: 'I am enough.',          createdAt, active: true, userId: DEMO_USER_ID, category: 'affirmation', sortIndex: 0 },
+    { id: 'a2', title: 'Today, I choose calm.', createdAt, active: true, userId: DEMO_USER_ID, category: 'affirmation', sortIndex: 1 },
+    { id: 'h1', title: '散步 30 分钟',          createdAt, active: true, userId: DEMO_USER_ID, category: 'habit',       sortIndex: 0 },
+    { id: 'h2', title: '读书 20 页',            createdAt, active: true, userId: DEMO_USER_ID, category: 'habit',       sortIndex: 1 },
   ];
 
   // Today's tasks (uncompleted).
@@ -73,6 +74,7 @@ export function useDemoStore() {
 
     addMicroHabit: async (title: string, category: MicroHabitCategory = 'habit'): Promise<MicroHabit> => {
       const id = crypto.randomUUID();
+      const sameCategory = microHabits.filter(h => (h.category ?? 'habit') === category);
       const newHabit: MicroHabit = {
         id,
         title,
@@ -80,6 +82,7 @@ export function useDemoStore() {
         active: true,
         userId: DEMO_USER_ID,
         category,
+        sortIndex: nextSortIndex(sameCategory),
       };
       setMicroHabits(prev => [...prev, newHabit]);
       setTasks(prev => [
@@ -87,6 +90,15 @@ export function useDemoStore() {
         { id: `${id}_${today}`, title, date: today, completed: false, habitId: id, userId: DEMO_USER_ID },
       ]);
       return newHabit;
+    },
+
+    reorderMicroHabits: async (orderedIds: string[]): Promise<void> => {
+      if (orderedIds.length === 0) return;
+      const plan = reorderPlan(orderedIds);
+      const sortIndexById = new Map(plan.map(p => [p.id, p.sortIndex]));
+      setMicroHabits(prev =>
+        prev.map(h => (sortIndexById.has(h.id) ? { ...h, sortIndex: sortIndexById.get(h.id)! } : h)),
+      );
     },
 
     updateMicroHabit: async (id: string, title: string): Promise<void> => {

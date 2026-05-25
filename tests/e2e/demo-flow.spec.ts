@@ -160,6 +160,58 @@ test.describe('Demo mode (logged-in UI surrogate)', () => {
     expect(structure!.scrollEl!.scrollTopAfter).toBeGreaterThan(0);
   });
 
+  test('Practice page reorders Habits via keyboard, Today follows new order', async ({ page }) => {
+    // Demo seeds: Habits section is [散步 30 分钟, 读书 20 页] (sortIndex 0, 1).
+    // Move "散步" down one slot using @dnd-kit's keyboard sensor:
+    // focus drag handle → Space (lift) → ArrowDown (move) → Space (drop).
+    // Expected after: [读书 20 页, 散步 30 分钟] on Practice AND on Today.
+    await page.goto(DEMO_URL);
+    await page.waitForSelector('h1', { timeout: 15000 });
+
+    await page.getByRole('button', { name: 'PRACTICE' }).click();
+    await expect(page.getByText('Decide what to repeat.')).toBeVisible();
+
+    // Sanity: starting order on Practice.
+    const practiceTitlesBefore = await page
+      .locator('main span.font-serif')
+      .allTextContents();
+    const habitsBefore = practiceTitlesBefore.filter(t =>
+      t.includes('散步') || t.includes('读书'),
+    );
+    expect(habitsBefore).toEqual(['散步 30 分钟', '读书 20 页']);
+
+    // Activator is a <button aria-label="Reorder item N..."> with the ordinal.
+    // 4 activators on the page in DOM order: a1(0), a2(1), h1(2: 散步), h2(3: 读书).
+    // Focus the 散步 handle (nth=2) and use @dnd-kit's keyboard sensor.
+    const handles = page.locator('button[aria-label^="Reorder item"]');
+    await expect(handles).toHaveCount(4);
+    await handles.nth(2).focus();
+    await page.keyboard.press('Space');
+    await page.waitForTimeout(150);
+    await page.keyboard.press('ArrowDown');
+    await page.waitForTimeout(150);
+    await page.keyboard.press('Space');
+    await page.waitForTimeout(400); // allow @dnd-kit drop + state update
+
+    // Practice: order swapped.
+    const practiceTitlesAfter = await page
+      .locator('main span.font-serif')
+      .allTextContents();
+    const habitsAfter = practiceTitlesAfter.filter(t =>
+      t.includes('散步') || t.includes('读书'),
+    );
+    expect(habitsAfter).toEqual(['读书 20 页', '散步 30 分钟']);
+
+    // Today: same order propagates.
+    await page.getByRole('button', { name: 'TODAY' }).click();
+    await expect(page.getByText('You are what you repeatedly do.')).toBeVisible();
+    const todayTitles = await page
+      .locator('main')
+      .getByText(/散步|读书/)
+      .allTextContents();
+    expect(todayTitles).toEqual(['读书 20 页', '散步 30 分钟']);
+  });
+
   test('Exit Demo button returns to login page', async ({ page }) => {
     await page.goto(DEMO_URL);
     await page.waitForSelector('h1', { timeout: 15000 });

@@ -1,8 +1,9 @@
 import { useState, useEffect, useRef } from 'react';
 import { format } from 'date-fns';
-import { MicroHabit, Task } from './types';
+import { MicroHabit, Task, MicroHabitCategory } from './types';
 import { db, auth } from './firebase';
-import { collection, doc, getDoc, setDoc, deleteDoc, updateDoc, onSnapshot, query } from 'firebase/firestore';
+import { collection, doc, getDoc, setDoc, deleteDoc, updateDoc, onSnapshot, query, writeBatch } from 'firebase/firestore';
+import { nextSortIndex, reorderPlan } from './lib/reorder';
 
 export async function migrateMicroHabitCategory(
   habit: MicroHabit,
@@ -291,10 +292,13 @@ export function useStore(userId?: string) {
   // --- Micro Habits ---
   const addMicroHabit = async (
     title: string,
-    category: 'habit' | 'affirmation' = 'habit',
+    category: MicroHabitCategory = 'habit',
   ): Promise<MicroHabit | undefined> => {
     if (!userId) return;
     const newHabitId = crypto.randomUUID();
+    const sameCategory = data.microHabits.filter(
+      h => (h.category ?? 'habit') === category,
+    );
     const newHabit: MicroHabit = {
       id: newHabitId,
       title,
@@ -302,6 +306,7 @@ export function useStore(userId?: string) {
       active: true,
       userId,
       category,
+      sortIndex: nextSortIndex(sameCategory),
     };
     const habitPath = `users/${userId}/microHabits/${newHabitId}`;
     try {
@@ -313,6 +318,26 @@ export function useStore(userId?: string) {
       return newHabit;
     } catch (error) {
       handleFirestoreError(error, OperationType.CREATE, habitPath);
+    }
+  };
+
+  /**
+   * Persist a new render order for one section. Caller passes the full ordered
+   * id list for that section (Affirmations or Habits); we batch-update each
+   * habit's sortIndex to its new position. Cross-category reorders are not
+   * supported — callers must pass ids from a single category.
+   */
+  const reorderMicroHabits = async (orderedIds: string[]): Promise<void> => {
+    if (!userId || orderedIds.length === 0) return;
+    const plan = reorderPlan(orderedIds);
+    const batch = writeBatch(db);
+    plan.forEach(({ id, sortIndex }) => {
+      batch.update(doc(db, `users/${userId}/microHabits/${id}`), { sortIndex });
+    });
+    try {
+      await batch.commit();
+    } catch (error) {
+      handleFirestoreError(error, OperationType.WRITE, `users/${userId}/microHabits`);
     }
   };
 
@@ -403,6 +428,7 @@ export function useStore(userId?: string) {
     addMicroHabit,
     updateMicroHabit,
     deleteMicroHabit,
+    reorderMicroHabits,
     toggleTaskCompletion,
     deleteTask,
     updateTask,

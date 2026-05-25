@@ -371,19 +371,34 @@ function DayDetailSheet({ open, onClose, selectedDate, tasks, microHabits }: Day
   const dragControls = useDragControls();
   const dayDate = parseISO(selectedDate);
   const habitCategoryMap = new Map<string, 'habit' | 'affirmation'>();
-  microHabits.forEach((h) => habitCategoryMap.set(h.id, h.category ?? 'habit'));
+  const habitById = new Map<string, MicroHabit>();
+  microHabits.forEach((h) => {
+    habitCategoryMap.set(h.id, h.category ?? 'habit');
+    habitById.set(h.id, h);
+  });
   const dayTasks = tasks.filter((t) => t.date === selectedDate);
   // Group by category (affirmations first, habits second) to match the
   // Today tab's vertical layout. Within each group, completed tasks bubble
-  // up before missed ones so progress is highlighted.
+  // up before missed ones; same-state tasks follow the user's Practice-page
+  // sort order so this view matches Today.
   const isAff = (t: Task) => habitCategoryMap.get(t.habitId) === 'affirmation';
+  const byHabitOrder = (a: Task, b: Task) => {
+    const ha = habitById.get(a.habitId);
+    const hb = habitById.get(b.habitId);
+    const ai = ha?.sortIndex;
+    const bi = hb?.sortIndex;
+    if (typeof ai === 'number' && typeof bi === 'number') return ai - bi;
+    if (typeof ai === 'number') return -1;
+    if (typeof bi === 'number') return 1;
+    return (ha?.createdAt ?? '').localeCompare(hb?.createdAt ?? '');
+  };
   const affs = dayTasks.filter(isAff);
   const habs = dayTasks.filter((t) => !isAff(t));
   const orderedTasks = [
-    ...affs.filter((t) => t.completed),
-    ...affs.filter((t) => !t.completed),
-    ...habs.filter((t) => t.completed),
-    ...habs.filter((t) => !t.completed),
+    ...affs.filter((t) => t.completed).sort(byHabitOrder),
+    ...affs.filter((t) => !t.completed).sort(byHabitOrder),
+    ...habs.filter((t) => t.completed).sort(byHabitOrder),
+    ...habs.filter((t) => !t.completed).sort(byHabitOrder),
   ];
   const completedCount = dayTasks.filter((t) => t.completed).length;
 

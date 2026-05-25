@@ -1,8 +1,26 @@
-import { useState, useRef, FormEvent } from 'react';
+import { useState, useRef, FormEvent, useMemo } from 'react';
 import { Plus } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
+import {
+  DndContext,
+  closestCenter,
+  KeyboardSensor,
+  PointerSensor,
+  TouchSensor,
+  useSensor,
+  useSensors,
+  DragEndEvent,
+} from '@dnd-kit/core';
+import {
+  SortableContext,
+  sortableKeyboardCoordinates,
+  verticalListSortingStrategy,
+  arrayMove,
+} from '@dnd-kit/sortable';
 import { MicroHabit } from '../types';
+import { sortByOrder } from '../lib/reorder';
 import SwipeActions from './SwipeActions';
+import SortableHabitItem from './SortableHabitItem';
 
 type Category = 'habit' | 'affirmation';
 
@@ -31,6 +49,14 @@ function CategorySection({
   const [editTitle, setEditTitle] = useState('');
   const submittedRef = useRef(false);
 
+  // Sensors: touch needs a small delay so vertical scroll still works;
+  // pointer needs a tiny distance threshold so plain taps don't initiate drag.
+  const sensors = useSensors(
+    useSensor(PointerSensor, { activationConstraint: { distance: 6 } }),
+    useSensor(TouchSensor, { activationConstraint: { delay: 200, tolerance: 8 } }),
+    useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates }),
+  );
+
   const handleAdd = (e: FormEvent) => {
     e.preventDefault();
     if (submittedRef.current) return;
@@ -49,7 +75,18 @@ function CategorySection({
     setEditingId(null);
   };
 
+  const handleDragEnd = (event: DragEndEvent) => {
+    const { active, over } = event;
+    if (!over || active.id === over.id) return;
+    const oldIndex = habits.findIndex(h => h.id === active.id);
+    const newIndex = habits.findIndex(h => h.id === over.id);
+    if (oldIndex < 0 || newIndex < 0) return;
+    const next = arrayMove(habits, oldIndex, newIndex);
+    store.reorderMicroHabits(next.map(h => h.id));
+  };
+
   const isAffirmation = category === 'affirmation';
+  const sortableIds = habits.map(h => h.id);
 
   return (
     <div className="mb-10">
@@ -57,99 +94,103 @@ function CategorySection({
         {title}
       </div>
 
-      <AnimatePresence mode="popLayout">
-        {habits.length === 0 && !isAdding ? (
-          <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            className="py-6 text-center"
-          >
-            <p className="text-sm font-serif italic text-[#B0ADA5]">{emptyText}</p>
-          </motion.div>
-        ) : (
-          habits.map((habit, index) => (
-            <motion.div
-              layout
-              initial={{ opacity: 0, y: 10 }}
-              animate={{ opacity: 1, y: 0 }}
-              exit={{ opacity: 0, height: 0, filter: 'blur(4px)' }}
-              transition={{ duration: 0.4, ease: [0.23, 1, 0.32, 1] }}
-              key={habit.id}
-            >
-              <SwipeActions
-                onEdit={() => {
-                  setEditingId(habit.id);
-                  setEditTitle(habit.title);
-                }}
-                onDelete={() => store.deleteMicroHabit(habit.id)}
+      <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
+        <SortableContext items={sortableIds} strategy={verticalListSortingStrategy}>
+          <AnimatePresence mode="popLayout">
+            {habits.length === 0 && !isAdding ? (
+              <motion.div
+                key="empty"
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                className="py-6 text-center"
               >
-                <div className="flex items-center gap-4 py-4 border-b border-[#EAE8E3]">
-                  <span className="text-[10px] font-medium text-[#C4C1B9] w-4 tracking-widest">
-                    {(index + 1).toString().padStart(2, '0')}
-                  </span>
-                  {editingId === habit.id ? (
-                    <input
-                      autoFocus
-                      type="text"
-                      value={editTitle}
-                      onChange={e => setEditTitle(e.target.value)}
-                      onBlur={() => handleSaveEdit(habit.id)}
-                      onKeyDown={e => e.key === 'Enter' && handleSaveEdit(habit.id)}
-                      className="flex-1 bg-transparent text-[15px] font-serif border-b border-[#8A9A86] focus:outline-none text-[#2C2C2C] py-0.5"
-                    />
-                  ) : (
-                    <span
-                      className={`text-[15px] font-serif text-[#2C2C2C] truncate ${
-                        isAffirmation ? 'italic' : ''
-                      }`}
+                <p className="text-sm font-serif italic text-[#B0ADA5]">{emptyText}</p>
+              </motion.div>
+            ) : (
+              habits.map((habit, index) => (
+                <motion.div
+                  initial={{ opacity: 0, y: 10 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  exit={{ opacity: 0, height: 0, filter: 'blur(4px)' }}
+                  transition={{ duration: 0.4, ease: [0.23, 1, 0.32, 1] }}
+                  key={habit.id}
+                >
+                  <SortableHabitItem id={habit.id} index={index}>
+                    <SwipeActions
+                      onEdit={() => {
+                        setEditingId(habit.id);
+                        setEditTitle(habit.title);
+                      }}
+                      onDelete={() => store.deleteMicroHabit(habit.id)}
                     >
-                      {isAffirmation && <span className="text-[#A09E9A]">&ldquo;</span>}
-                      {habit.title}
-                      {isAffirmation && <span className="text-[#A09E9A]">&rdquo;</span>}
-                    </span>
-                  )}
-                </div>
-              </SwipeActions>
-            </motion.div>
-          ))
-        )}
+                      <div className="flex items-center py-4 border-b border-[#EAE8E3]">
+                        {editingId === habit.id ? (
+                          <input
+                            autoFocus
+                            type="text"
+                            value={editTitle}
+                            onChange={e => setEditTitle(e.target.value)}
+                            onBlur={() => handleSaveEdit(habit.id)}
+                            onKeyDown={e => e.key === 'Enter' && handleSaveEdit(habit.id)}
+                            className="flex-1 bg-transparent text-[15px] font-serif border-b border-[#8A9A86] focus:outline-none text-[#2C2C2C] py-0.5"
+                          />
+                        ) : (
+                          <span
+                            className={`text-[15px] font-serif text-[#2C2C2C] truncate ${
+                              isAffirmation ? 'italic' : ''
+                            }`}
+                          >
+                            {isAffirmation && <span className="text-[#A09E9A]">&ldquo;</span>}
+                            {habit.title}
+                            {isAffirmation && <span className="text-[#A09E9A]">&rdquo;</span>}
+                          </span>
+                        )}
+                      </div>
+                    </SwipeActions>
+                  </SortableHabitItem>
+                </motion.div>
+              ))
+            )}
 
-        {isAdding && (
-          <motion.form
-            initial={{ opacity: 0, height: 0 }}
-            animate={{ opacity: 1, height: 'auto' }}
-            exit={{ opacity: 0, height: 0 }}
-            onSubmit={handleAdd}
-            className="flex items-center gap-4 py-4 border-b border-[#2C2C2C]"
-          >
-            <span className="text-[10px] font-medium text-[#C4C1B9] w-4 tracking-widest">
-              {(habits.length + 1).toString().padStart(2, '0')}
-            </span>
-            <input
-              autoFocus
-              type="text"
-              placeholder={isAffirmation ? 'Enter an affirmation...' : 'Enter a new habit...'}
-              value={newTitle}
-              onChange={e => setNewTitle(e.target.value)}
-              onBlur={() => {
-                if (submittedRef.current) return;
-                if (newTitle.trim()) {
-                  submittedRef.current = true;
-                  const t = newTitle.trim();
-                  setNewTitle('');
-                  setIsAdding(false);
-                  store.addMicroHabit(t, category);
-                } else {
-                  setIsAdding(false);
-                }
-              }}
-              className={`flex-1 bg-transparent text-[15px] font-serif placeholder:text-[#C4C1B9] placeholder:italic focus:outline-none ${
-                isAffirmation ? 'italic' : ''
-              }`}
-            />
-          </motion.form>
-        )}
-      </AnimatePresence>
+            {isAdding && (
+              <motion.form
+                key="adding"
+                initial={{ opacity: 0, height: 0 }}
+                animate={{ opacity: 1, height: 'auto' }}
+                exit={{ opacity: 0, height: 0 }}
+                onSubmit={handleAdd}
+                className="flex items-center gap-4 py-4 border-b border-[#2C2C2C]"
+              >
+                <span className="text-[10px] font-medium text-[#C4C1B9] w-8 tracking-widest text-center">
+                  {(habits.length + 1).toString().padStart(2, '0')}
+                </span>
+                <input
+                  autoFocus
+                  type="text"
+                  placeholder={isAffirmation ? 'Enter an affirmation...' : 'Enter a new habit...'}
+                  value={newTitle}
+                  onChange={e => setNewTitle(e.target.value)}
+                  onBlur={() => {
+                    if (submittedRef.current) return;
+                    if (newTitle.trim()) {
+                      submittedRef.current = true;
+                      const t = newTitle.trim();
+                      setNewTitle('');
+                      setIsAdding(false);
+                      store.addMicroHabit(t, category);
+                    } else {
+                      setIsAdding(false);
+                    }
+                  }}
+                  className={`flex-1 bg-transparent text-[15px] font-serif placeholder:text-[#C4C1B9] placeholder:italic focus:outline-none ${
+                    isAffirmation ? 'italic' : ''
+                  }`}
+                />
+              </motion.form>
+            )}
+          </AnimatePresence>
+        </SortableContext>
+      </DndContext>
 
       {!isAdding && (
         <motion.button
@@ -171,8 +212,14 @@ function CategorySection({
 
 export default function PracticeView({ store }: PracticeViewProps) {
   const allHabits: MicroHabit[] = store.data.microHabits;
-  const affirmations = allHabits.filter(h => (h.category ?? 'habit') === 'affirmation');
-  const habits = allHabits.filter(h => (h.category ?? 'habit') === 'habit');
+  const affirmations = useMemo(
+    () => sortByOrder(allHabits.filter(h => (h.category ?? 'habit') === 'affirmation')),
+    [allHabits],
+  );
+  const habits = useMemo(
+    () => sortByOrder(allHabits.filter(h => (h.category ?? 'habit') === 'habit')),
+    [allHabits],
+  );
 
   return (
     <div className="pb-12">
