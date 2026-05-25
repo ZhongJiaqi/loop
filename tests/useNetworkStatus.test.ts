@@ -36,15 +36,45 @@ describe('useNetworkStatus', () => {
     expect(result.current.online).toBe(true);
   });
 
-  it('reports online=false when navigator.onLine is false at mount', () => {
+  it('starts optimistically online even if navigator.onLine is false at mount; flips after 1.5s sustained offline', () => {
     setOnline(false);
     const { result } = renderHook(() =>
       useNetworkStatus({ ready: false, dataLoaded: false }),
     );
+    // Optimistic: don't flash banner on cold boot. iOS PWA briefly mis-reports.
+    expect(result.current.online).toBe(true);
+    // Under 1.5s — still optimistically online.
+    act(() => {
+      vi.advanceTimersByTime(1400);
+    });
+    expect(result.current.online).toBe(true);
+    // Past 1.5s sustained offline — now reflect reality.
+    act(() => {
+      vi.advanceTimersByTime(200);
+    });
     expect(result.current.online).toBe(false);
   });
 
-  it('flips online when window dispatches offline / online events', () => {
+  it('online event during the offline debounce window cancels the flip', () => {
+    setOnline(false);
+    const { result } = renderHook(() =>
+      useNetworkStatus({ ready: false, dataLoaded: false }),
+    );
+    expect(result.current.online).toBe(true);
+    // 0.8s in — offline timer still pending; fire online event.
+    act(() => {
+      vi.advanceTimersByTime(800);
+      setOnline(true);
+      window.dispatchEvent(new Event('online'));
+    });
+    // Past where offline timer would have fired — should still be online.
+    act(() => {
+      vi.advanceTimersByTime(2000);
+    });
+    expect(result.current.online).toBe(true);
+  });
+
+  it('flips online via window events with debounced offline', () => {
     const { result } = renderHook(() =>
       useNetworkStatus({ ready: false, dataLoaded: false }),
     );
@@ -54,12 +84,18 @@ describe('useNetworkStatus', () => {
       setOnline(false);
       window.dispatchEvent(new Event('offline'));
     });
+    // Debounced — still online immediately after the event.
+    expect(result.current.online).toBe(true);
+    act(() => {
+      vi.advanceTimersByTime(1600);
+    });
     expect(result.current.online).toBe(false);
 
     act(() => {
       setOnline(true);
       window.dispatchEvent(new Event('online'));
     });
+    // Online events take effect immediately (no debounce on the good direction).
     expect(result.current.online).toBe(true);
   });
 
