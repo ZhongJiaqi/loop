@@ -1,7 +1,7 @@
 # Loop — 交接文档
 
-> 上次更新: 2026-05-25
-> **新会话从这里开始**：项目稳定运行在 `https://loop-365.vercel.app`（**Vercel project domain，`vercel --prod` 部署完后自动 promote**；注意：**Vercel 不连 GitHub auto-deploy**，git push 后仍需手动 `vercel --prod`）。main HEAD = `8b39966`，working tree clean。lint 0 / 64 单测 / 17 e2e 全过。最近一次发版：5-25 Practice 拖拽分类排序 feature + iOS 长按抑制系统复制菜单。
+> 上次更新: 2026-05-25 晚
+> **新会话从这里开始**：项目稳定运行在 `https://loop-365.vercel.app`（**Vercel project domain，`vercel --prod` 部署完后自动 promote**；注意：**Vercel 不连 GitHub auto-deploy**，git push 后仍需手动 `vercel --prod`）。main HEAD = `5e13871`，working tree clean。lint 0 / 65 单测 / 17 e2e 全过。最近一次发版：5-25 晚 网络瞬态 banner 防抖修复（链接前 3 个 commit：section confetti + ?allDone demo / 超时拉长 + SW 状态精细化）。
 > 历史名字演化：**Micro Habits → Becoming（5-03）→ Loop（5-22）**。HANDOFF 历史段保留原品牌词作为时间戳锚点，请按段头日期判断当时品牌。
 
 ---
@@ -9,6 +9,17 @@
 ## 1. 一句话现状
 
 **品牌**：Loop。**哲学**：Thoughts → Feelings → Actions → Identity → 反过来强化 Thoughts（莫比乌斯闭环）。**产品形态**：两类一等内容——Affirmations（thoughts/feelings）+ Habits（actions），21-Day Hall = identity achievements。三 tab：Today / Practice / History。
+
+**最新一轮工作**（2026-05-25 晚，4 个 commit — 庆祝动效 + 误报修复）：
+
+4. **section 全完成区域 confetti**（`0220432`）：Today 页双 section（Affirmations / Habits）各自从 not-all → all 边沿触发 26 颗小型 confetti，origin 是 section DOM 中心点（`getBoundingClientRect / window.innerWidth/innerHeight` 算 `[0,1]` viewport 坐标）。两 section 颜色区分：Affirmations 金（`#D4AF37 / #F3E5AB / #C9A961 / #E5C97B`），Habits sage 绿（`#8A9A86 / #A8B5A2 / #6F8267 / #C2CFBC`），跟个体完成反馈的色系一致。**互斥规则**：同一次 toggle 若同时让整页 all done，section confetti 跳过让整页 80 颗金色 confetti 独享舞台。**关键 bug 防范**：`useSectionConfetti` 用 `useRef` 追踪真正的 active false→true 边沿，而非依赖 useEffect 的 `skipWhen` dep 变化——否则会出现"取消勾任意 task → 另一 section skipWhen 翻回 false 触发 effect 重跑 → active 仍 true → 误补播 section confetti"
+5. **`?demo=1&allDone=1` 预置全完成 demo 模式**（`bd8df2e`）：`useDemoStore.makeInitial` 接受 `allDone` 参数，URL 含 `allDone=1` 时所有 task 初始化为 `completed: true`，专测 mount-with-all-done 路径。诚实承认 process gap：之前自动化测试只覆盖了"从未完成态渐进勾选"的 edge fire，漏掉 mount 时已 all done 的代码路径。用 console.log 验证 mount 时整页 confetti FIRE + 两 section skipWhen=true 被互斥跳过，符合预期
+6. **网络误报 banner + SW 超时拉长**（`5f0afda`）：
+   - `useNetworkStatus.FIRESTORE_TIMEOUT_MS` 6s → **15s**。原 6s 在国内移动网 / 无 IndexedDB 缓存 / SW 刚更新冷启动场景下误报"无法连接服务器"。15s 仍超时基本可断真挂掉
+   - `messaging.waitForServiceWorkerReady()`：抽出 helper + SW 超时 8s → **20s** + 状态分支。`getRegistration()=null` 立即报"SW 未注册，请刷新页面"；`active` 立即 return；`installing/waiting` 才 race `serviceWorker.ready` 20s。错误文案改"请刷新页面后重试"给用户明确动作
+7. **online 状态 1.5s debounce 防瞬态闪 banner**（`5e13871`）：症状是首屏短暂出现"设备未联网"banner、1-2s 自己消失。根因是 iOS PWA / 部分浏览器冷启动 `navigator.onLine` 短暂报 false。修：初始 `online` state 乐观为 `true` 不读 `navigator.onLine` 那个不准的初值；mount 时 onLine=false 或 offline 事件启动 1.5s 防抖定时器，期间任何 online 事件取消定时器；online 方向（好状态）立即生效。回归测试新增"防抖期内 online 事件取消 flip"
+
+**线上验收（5-25 晚）**：4 次部署，最终 prod chunk `index-BApzGXiE.js`，`loop-365.vercel.app` 自动 promote。section confetti 浏览器 6 步 case 全过（互斥 + 取消不补播 + 重勾再触发），mount-with-all-done 路径 console.log 印证。用户手机真账号验收：通知开启 OK、网络瞬态 banner 消失。
 
 **最新一轮工作**（2026-05-25，3 个 commit）：
 1. **清理 Hall 21-day habitPool 死代码**（`d1a57b2`）：Hall 自 5-05 已 view-computed（HistoryView 直接按 microHabit 累计 completed >= 21 排序），但 useStore 仍保留 habitPool listener + toggleTaskCompletion 21-day setDoc 写入两条死路径。本次清掉 AppData.habitPool 字段 / defaultData 初始化 / unsubHabitPool / toggleTaskCompletion 内 21-day 写入 / HabitPoolItem type / useDemoStore mock 字段。净删 45 行。firestore.rules 的 habitPool match block 保留并加 DEPRECATED 注释（老用户文档仍在 Firestore，owner-only read/delete 不影响安全）
@@ -693,16 +704,16 @@ c08d49f feat: 修 iOS 移动端登录失败 + 同步推送通知到 git
 
 ```bash
 cd /Users/jiaqizhong/loop                 # ← 新路径，不是 ~/micro-habits 了
-git log --oneline -10                      # 应看到最新 8b39966 fix(practice): 手机长按
+git log --oneline -10                      # 应看到最新 5e13871 fix(network): online debounce
 git status                                 # working tree 应 clean，main 与 origin 同步
-npm run lint && npm test -- --run          # 期望 lint 0 + 64 单测全过
+npm run lint && npm test -- --run          # 期望 lint 0 + 65 单测全过
 ```
 
-**新会话第一件事**：读 handoff 头部 + §1（含本次 5-25 三件）+ §6.-3（项目级 rename 史）+ §6.-2（品牌史）。重点：
-1. **当前 prod**：`https://loop-365.vercel.app`（老 `micro-habits-zeta.vercel.app` 仍兼容）；main HEAD = `8b39966`
-2. **Practice 拖拽 feature 已上**：双 section 各自排序，Today 跟随，@dnd-kit 接管交互。drag activator 是序号 01/02
-3. **真账号 reorder 链路尚未真机回归**（详见 §1 未做）—— demo 模式跑通，prod 真账号写入链路待自己用真账号拖一下确认
-4. **配置链记忆点**：Vercel SSO 已关 / Firebase Auth 含 loop-365.vercel.app / OAuth redirect URIs 含 loop-365.vercel.app/__/auth/handler。**未来加任何新域名**（如自定义域名）须同步这 3 处
+**新会话第一件事**：读 handoff 头部 + §1（含本次 5-25 七件 commit）+ §6.-3（项目级 rename 史）+ §6.-2（品牌史）。重点：
+1. **当前 prod**：`https://loop-365.vercel.app`（老 `micro-habits-zeta.vercel.app` 仍兼容）；main HEAD = `5e13871`
+2. **Practice 拖拽 feature + section confetti 已上**：双 section 各自排序 / Today 跟随 / drag activator 是序号 01/02；section 全完成区域 confetti（金 / sage 区分）+ 互斥规则
+3. **配置链记忆点**：Vercel SSO 已关 / Firebase Auth 含 loop-365.vercel.app / OAuth redirect URIs 含 loop-365.vercel.app/__/auth/handler。**未来加任何新域名**（如自定义域名）须同步这 3 处
+4. **demo 调试入口**：`?demo=1` 跳 Auth；`?demo=1&allDone=1` 预置全完成专测 mount-with-all-done 边沿路径
 
 ### 各文档定位
 
@@ -720,7 +731,7 @@ npm run preview                  # vite preview :4173 (跑 dist 产物)
 
 # 验证
 npm run lint                     # tsc --noEmit (期望 0 errors)
-npm test -- --run                # vitest 单跑（64 unit）
+npm test -- --run                # vitest 单跑（65 unit）
 npm run test:e2e                 # Playwright (auto-build + preview)（17 e2e: 9 demo + 8 login/PWA/responsive）
 
 # 部署
