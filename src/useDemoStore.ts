@@ -5,7 +5,7 @@ import { nextSortIndex, reorderPlan } from './lib/reorder';
 
 const DEMO_USER_ID = 'demo-user';
 
-function makeInitial() {
+function makeInitial(allDone = false) {
   const today = format(new Date(), 'yyyy-MM-dd');
   const now = new Date();
   // Backdate habit creation 30 days so daysSinceLastCompletion can look back.
@@ -18,12 +18,14 @@ function makeInitial() {
     { id: 'h2', title: '读书 20 页',            createdAt, active: true, userId: DEMO_USER_ID, category: 'habit',       sortIndex: 1 },
   ];
 
-  // Today's tasks (uncompleted).
+  // Today's tasks. `allDone` mode pre-seeds every task as completed, so we can
+  // exercise the mount-with-all-done path (e.g. section/page confetti edge
+  // firing on the very first render). Triggered via `?demo=1&allDone=1`.
   const tasks: Task[] = habits.map(h => ({
     id: `${h.id}_${today}`,
     title: h.title,
     date: today,
-    completed: false,
+    completed: allDone,
     habitId: h.id,
     userId: DEMO_USER_ID,
   }));
@@ -59,7 +61,9 @@ function makeInitial() {
 }
 
 export function useDemoStore() {
-  const [{ habits: initHabits, tasks: initTasks }] = useState(makeInitial);
+  const [{ habits: initHabits, tasks: initTasks }] = useState(() =>
+    makeInitial(isDemoAllDone()),
+  );
   const [microHabits, setMicroHabits] = useState<MicroHabit[]>(initHabits);
   const [tasks, setTasks] = useState<Task[]>(initTasks);
 
@@ -128,4 +132,14 @@ export function useDemoStore() {
 export function isDemoMode(): boolean {
   if (typeof window === 'undefined') return false;
   return new URLSearchParams(window.location.search).has('demo');
+}
+
+/**
+ * `?demo=1&allDone=1` — preseeds every task as completed so the demo opens
+ * directly into the all-done state. Used to dogfood the mount-with-all-done
+ * path (section/page confetti firing on first render).
+ */
+export function isDemoAllDone(): boolean {
+  if (typeof window === 'undefined') return false;
+  return new URLSearchParams(window.location.search).has('allDone');
 }
