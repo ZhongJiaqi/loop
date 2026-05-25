@@ -22,10 +22,10 @@ Single-page React 19 PWA with Firebase backend, deployed on Vercel.
 
 - **Auth**: Firebase Auth (Google Sign-in) → `App.tsx` passes `user.uid` to `useStore()`
 - **State**: `useStore.ts` is a custom hook that manages all data via Firestore `onSnapshot` real-time listeners — no Redux/Zustand
-- **Three Firestore collections** per user (all under `users/{userId}/`):
-  - `microHabits` — habit definitions (active/inactive)
-  - `tasks` — daily task instances (both habit-derived and one-time)
-  - `habitPool` — "Hall of Fame" entries for habits with 21-day streaks
+- **Two active Firestore collections** per user (under `users/{userId}/`):
+  - `microHabits` — practice definitions (Affirmations + Habits), `category` field discriminates; `sortIndex` field drives Practice-page drag-to-reorder + Today render order
+  - `tasks` — daily task instances (deterministic ID `{habitId}_{date}`), one task per active microHabit per day
+  - ~~`habitPool`~~ — DEPRECATED (5-25). Hall of Fame is view-computed by `HistoryView` from microHabits+tasks. Old docs in Firestore retained, `firestore.rules` keeps owner-only access. Frontend no longer reads or writes
 
 ### Critical: Task Creation Logic
 
@@ -40,12 +40,14 @@ Task creation for habits is centralized in a single `useEffect` in `useStore.ts`
 
 ### UI Structure
 
-`App.tsx` has three tabs (Today / Habits / History) with `AnimatePresence` transitions. Mobile-first layout capped at `max-w-md`. Components:
+`App.tsx` has three tabs (Today / Practice / History) with `AnimatePresence` transitions. Mobile-first layout capped at `max-w-md`. Components:
 
-- `TodayView` — daily task list with completion toggles
-- `HabitsView` — CRUD for habit definitions
-- `HistoryView` — calendar heatmap, streak analytics, hall of fame
-- `SwipeActions` — mobile swipe-to-reveal for edit/delete
+- `TodayView` — daily task list with completion toggles, per-section + whole-page confetti on all-complete (mutually exclusive)
+- `PracticeView` — CRUD for Affirmations + Habits, drag-to-reorder via `@dnd-kit` (numeric ordinal `01`/`02` is the drag activator)
+- `SortableHabitItem` — `useSortable` wrapper around each Practice row
+- `HistoryView` — calendar heatmap, streak analytics, view-computed 21-Day Hall, DayDetailSheet bottom-sheet
+- `SwipeActions` — mobile swipe-to-reveal for edit/delete (coexists with dnd-kit by yielding to vertical pointer movement)
+- `NetworkStatusBanner` — amber-tone banner driven by `useNetworkStatus` (1.5s debounce on offline, 15s threshold on Firestore unreach)
 
 ### Design Tokens (hardcoded, no theme file)
 
@@ -63,10 +65,15 @@ Configured via `vite-plugin-pwa` in `vite.config.ts`. Service worker auto-update
 
 ### Testing
 
-- Unit tests in `tests/useStore.test.ts` — tests extracted task creation logic with mocked Firestore to verify dedup behavior
-- E2E tests in `tests/e2e/habits.spec.ts` — Playwright against preview build on :4173
+- Unit tests in `tests/*.test.ts(x)` — extracted pure-function logic with mocked Firestore (useStore dedup / reorderPlan / useNetworkStatus / etc.)
+- E2E tests in `tests/e2e/*.spec.ts` — Playwright against preview build on :4173
 - Vitest config is in `vite.config.ts` (excludes `tests/e2e/**`)
 - 每次修改完代码都要测试（增量功能测试和回归测试），不要等用户问，给用户体验前都要全量测试，测试验收没问题才给用户体验
+
+### Demo Mode
+
+- `?demo=1` — skips Firebase Auth, uses `useDemoStore` (in-memory). Local dev without configuring Auth domains
+- `?demo=1&allDone=1` — same as demo, but seeds all today's tasks as `completed: true`. Use to dogfood mount-with-all-done paths (confetti on first render, etc.)
 
 ### Firebase Config
 
