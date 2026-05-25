@@ -17,11 +17,3 @@ export interface Task {
   habitId: string; // 现在必填，所有 task 都来自 habit
   userId: string;
 }
-
-export interface HabitPoolItem {
-  id: string;
-  habitId: string;
-  title: string;
-  achievedDate: string; // YYYY-MM-DD
-  userId: string;
-}

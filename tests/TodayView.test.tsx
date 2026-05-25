@@ -16,7 +16,7 @@ import type { Task, MicroHabit } from '../src/types';
 
 function makeStore(microHabits: MicroHabit[], tasks: Task[]) {
   return {
-    data: { microHabits, tasks, habitPool: [], loaded: true },
+    data: { microHabits, tasks, loaded: true },
     toggleTaskCompletion: vi.fn(),
   };
 }

@@ -27,7 +27,9 @@ service cloud.firestore {
     //   - type: deprecated (legacy data may still have it, validation tolerant)
     //   - priority: deprecated (legacy one-time data, validation tolerant)
     //
-    // Collection: users/{userId}/habitPool
+    // Collection: users/{userId}/habitPool — DEPRECATED (frontend no longer reads/writes)
+    // Hall of Fame is view-computed from microHabits+tasks. Rules retained so legacy
+    // docs from older clients remain owner-readable/deletable.
     // Document ID: {poolId}
     // Fields:
     //   - id: string (required)

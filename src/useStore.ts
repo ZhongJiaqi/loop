@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from 'react';
 import { format } from 'date-fns';
-import { MicroHabit, Task, HabitPoolItem } from './types';
+import { MicroHabit, Task } from './types';
 import { db, auth } from './firebase';
 import { collection, doc, getDoc, setDoc, deleteDoc, updateDoc, onSnapshot, query } from 'firebase/firestore';
 
@@ -131,7 +131,6 @@ function handleFirestoreError(error: unknown, operationType: OperationType, path
 interface AppData {
   microHabits: MicroHabit[];
   tasks: Task[];
-  habitPool: HabitPoolItem[];
   /**
    * True once both microHabits AND tasks have received their first onSnapshot
    * payload from Firestore. Until then, downstream views should show a loading
@@ -144,7 +143,6 @@ interface AppData {
 const defaultData: AppData = {
   microHabits: [],
   tasks: [],
-  habitPool: [],
   loaded: false,
 };
 
@@ -167,7 +165,6 @@ export function useStore(userId?: string) {
     }
 
     // Mark `loaded: true` only after BOTH core collections have arrived.
-    // habitPool is non-essential for first-paint, so we don't gate on it.
     const markLoadedIfReady = () => {
       if (tasksLoadedRef.current && microHabitsLoadedRef.current) {
         setData(prev => (prev.loaded ? prev : { ...prev, loaded: true }));
@@ -179,11 +176,9 @@ export function useStore(userId?: string) {
 
     const microHabitsPath = `users/${userId}/microHabits`;
     const tasksPath = `users/${userId}/tasks`;
-    const habitPoolPath = `users/${userId}/habitPool`;
 
     const microHabitsRef = collection(db, microHabitsPath);
     const tasksRef = collection(db, tasksPath);
-    const habitPoolRef = collection(db, habitPoolPath);
 
     const unsubMicroHabits = onSnapshot(query(microHabitsRef), (snapshot) => {
       const microHabits = snapshot.docs.map(doc => doc.data() as MicroHabit);
@@ -218,17 +213,9 @@ export function useStore(userId?: string) {
       handleFirestoreError(error, OperationType.LIST, tasksPath);
     });
 
-    const unsubHabitPool = onSnapshot(query(habitPoolRef), (snapshot) => {
-      const habitPool = snapshot.docs.map(doc => doc.data() as HabitPoolItem);
-      setData(prev => ({ ...prev, habitPool }));
-    }, (error) => {
-      handleFirestoreError(error, OperationType.LIST, habitPoolPath);
-    });
-
     return () => {
       unsubMicroHabits();
       unsubTasks();
-      unsubHabitPool();
     };
   }, [userId]);
 
@@ -374,31 +361,6 @@ export function useStore(userId?: string) {
 
     try {
       await updateDoc(doc(db, path), { completed: newCompletedState });
-
-      // Check for 21-day streak if it's a habit task being completed
-      if (newCompletedState && task.habitId) {
-        // 包含当前刚被勾选的 task（虚拟 completed=true），计算 streak
-        const allTasksForStreak = data.tasks.map(t =>
-          t.id === id ? { ...t, completed: true } : t
-        );
-        const currentStreak = calculateStreak(task.habitId, task.date, allTasksForStreak);
-
-        if (currentStreak >= 21) {
-          if (!data.habitPool.some(p => p.habitId === task.habitId)) {
-            const newPoolId = crypto.randomUUID();
-            const newPoolItem: HabitPoolItem = {
-              id: newPoolId,
-              habitId: task.habitId,
-              title: task.title,
-              achievedDate: format(new Date(), 'yyyy-MM-dd'),
-              userId,
-            };
-            const poolPath = `users/${userId}/habitPool/${newPoolId}`;
-            await setDoc(doc(db, poolPath), newPoolItem).catch(error =>
-              handleFirestoreError(error, OperationType.CREATE, poolPath));
-          }
-        }
-      }
     } catch (error) {
       handleFirestoreError(error, OperationType.UPDATE, path);
     }

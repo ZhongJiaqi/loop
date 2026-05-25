@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { format } from 'date-fns';
-import { MicroHabit, Task, HabitPoolItem, MicroHabitCategory } from './types';
+import { MicroHabit, Task, MicroHabitCategory } from './types';
 
 const DEMO_USER_ID = 'demo-user';
 
@@ -61,12 +61,11 @@ export function useDemoStore() {
   const [{ habits: initHabits, tasks: initTasks }] = useState(makeInitial);
   const [microHabits, setMicroHabits] = useState<MicroHabit[]>(initHabits);
   const [tasks, setTasks] = useState<Task[]>(initTasks);
-  const [habitPool] = useState<HabitPoolItem[]>([]);
 
   const today = format(new Date(), 'yyyy-MM-dd');
 
   return {
-    data: { microHabits, tasks, habitPool, loaded: true },
+    data: { microHabits, tasks, loaded: true },
 
     toggleTaskCompletion: (id: string) => {
       setTasks(prev => prev.map(t => (t.id === id ? { ...t, completed: !t.completed } : t)));
