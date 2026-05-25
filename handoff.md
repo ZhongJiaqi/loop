@@ -29,7 +29,7 @@
 
 **未做（明确留意）**：
 - ✅ **iOS PWA 真机回归** — 2026-05-23 用户真机一次性验收通过（新 Möbius 图标 / 日期抽屉滚动手感 / 网络异常 banner / 莫比乌斯 dot 动画 / hadSession 老 key 迁移）。**提醒**：未来换图标仍需用户长按删除旧 Loop → Safari 重新 Add to Home Screen，iOS 主屏图标烧死在系统层
-- 🟡 **真账号场景的 reorder 链路尚未真机回归** — 本次 5-25 demo 模式（in-memory）+ iOS Safari 桌面/手机长按手势验收 OK，**但 prod 真账号下 reorder 走 Firestore writeBatch + onSnapshot 回声链路尚未真测**。第一次自己用真账号在 prod 拖一下确认顺序持久化（理论上 firestore.rules 的 isValidMicroHabit 用 hasRequiredFields 不强制 absent，sortIndex 字段加入应放行）
+- ✅ **真账号场景的 reorder 链路真机回归** — 2026-05-25 用户手机真账号 prod 拖拽一次性验收通过（顺序立即变 / 刷新保留 / Today 跟随 / 0 报错）。firestore.rules `isValidMicroHabit` 的 `hasRequiredFields` 确认放行 sortIndex 字段，writeBatch 写入正常 + onSnapshot 回声体感无延迟
 - 🟡 **2026-06-22 后**清理 `LEGACY_HAD_SESSION_KEY` (`becoming.hadSession`) 双读代码，TODO 已标
 - 🟡 `public/icons/v2/` 留下了 6 个图标候选 + `preview.html` 对比页，作为设计存档；未来想换风格直接挑别的或基于这套套色再衍生
 - 🟢 **自定义域名 loop.app / getloop.app** 等是下一步可考虑的——template：3 步 UI 点击（Firebase 加 domain + Google OAuth 加 redirect URI + Vercel 加 custom domain）
