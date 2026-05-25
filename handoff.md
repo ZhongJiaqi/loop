@@ -1,7 +1,7 @@
 # Loop — 交接文档
 
-> 上次更新: 2026-05-23 晚
-> **新会话从这里开始**：项目稳定运行在 `https://loop-365.vercel.app`（**Vercel project domain，`vercel --prod` 部署完后自动 promote**；注意：**Vercel 不连 GitHub auto-deploy**，git push 后仍需手动 `vercel --prod`）。main HEAD = `3018e02`，working tree clean。lint 0 / 51 单测 / 16 e2e 全过。**iOS PWA 真机回归 5-23 用户验收通过**。最近一次发版：5-23 晚 tagline 协奏（Today 顶部加 Durant，Practice 改 *Decide what to repeat.*）。
+> 上次更新: 2026-05-25
+> **新会话从这里开始**：项目稳定运行在 `https://loop-365.vercel.app`（**Vercel project domain，`vercel --prod` 部署完后自动 promote**；注意：**Vercel 不连 GitHub auto-deploy**，git push 后仍需手动 `vercel --prod`）。main HEAD = `8b39966`，working tree clean。lint 0 / 64 单测 / 17 e2e 全过。最近一次发版：5-25 Practice 拖拽分类排序 feature + iOS 长按抑制系统复制菜单。
 > 历史名字演化：**Micro Habits → Becoming（5-03）→ Loop（5-22）**。HANDOFF 历史段保留原品牌词作为时间戳锚点，请按段头日期判断当时品牌。
 
 ---
@@ -9,6 +9,13 @@
 ## 1. 一句话现状
 
 **品牌**：Loop。**哲学**：Thoughts → Feelings → Actions → Identity → 反过来强化 Thoughts（莫比乌斯闭环）。**产品形态**：两类一等内容——Affirmations（thoughts/feelings）+ Habits（actions），21-Day Hall = identity achievements。三 tab：Today / Practice / History。
+
+**最新一轮工作**（2026-05-25，3 个 commit）：
+1. **清理 Hall 21-day habitPool 死代码**（`d1a57b2`）：Hall 自 5-05 已 view-computed（HistoryView 直接按 microHabit 累计 completed >= 21 排序），但 useStore 仍保留 habitPool listener + toggleTaskCompletion 21-day setDoc 写入两条死路径。本次清掉 AppData.habitPool 字段 / defaultData 初始化 / unsubHabitPool / toggleTaskCompletion 内 21-day 写入 / HabitPoolItem type / useDemoStore mock 字段。净删 45 行。firestore.rules 的 habitPool match block 保留并加 DEPRECATED 注释（老用户文档仍在 Firestore，owner-only read/delete 不影响安全）
+2. **Practice 分类拖拽排序 feature**（`8a4eec0`）：双 section（Affirmations / Habits）支持鼠标拖动 / 触摸长按 / 键盘三种 reorder，Today + DayDetailSheet 跟随顺序，保持双页认知一致。MicroHabit 加可选 `sortIndex`，addMicroHabit 自动算 = section 内 max+1，reorderMicroHabits 用 Firestore writeBatch 整 section reindex。装 `@dnd-kit/{core,sortable,utilities}`（~20KB gzip），序号 01/02 复用为 drag activator 零新视觉，PointerSensor 6px + TouchSensor 200ms delay + KeyboardSensor 三传感器并行。**关键坑**：第一版 motion.div 上有 `layout` prop 跟 dnd-kit transform 冲突导致 drop 后 snap-back 回原位——去掉 layout 让 dnd-kit 内置 sortable transition 接管。新文件：`src/lib/reorder.ts` (3 pure functions + 13 单测) / `src/components/SortableHabitItem.tsx` (useSortable wrapper) / `tests/reorderPlan.test.ts`。e2e 新增"键盘 reorder + Today 跟随"用例
+3. **iOS 手机长按抑制系统复制菜单**（`8b39966`）：iOS Safari 默认长按文字 300ms 弹"复制 / 查找 / 共享"上下文菜单，跟 TouchSensor 的 200ms 拖拽 delay 抢手势 → 用户长按拖拽时菜单先弹。给 habit 行非编辑态加 `select-none [-webkit-touch-callout:none] [-webkit-user-select:none]` 抑制系统菜单；input 编辑态显式 `select-text [-webkit-user-select:text] [-webkit-touch-callout:default]` 保留选区粘贴。drag activator (序号 button) 同样加上。**纯 CSS 修复**，jsdom/Playwright headless 跑不出真机 touch-callout 差异，靠 iOS Safari 真机回归——本次用户验收通过
+
+**线上验收**：5-25 三次部署，最终 prod chunk `index-CNzovMQC.js`，`loop-365.vercel.app` 自动 promote。用户真机鼠标拖（Practice 序号长按）+ iOS Safari 长按手势全部通过。
 
 **最新一轮工作**（2026-05-23 早，6 个 commit）：
 1. **修 History 日期抽屉滚动 bug**（`8ffaa69`）：`drag="y"` 和 `overflow-y-auto` 在同一 motion.div 上，framer-motion drag 监听器吞掉垂直 touch → 内容滚不动。拆 drag handle + 独立 scroll container 修
@@ -22,6 +29,7 @@
 
 **未做（明确留意）**：
 - ✅ **iOS PWA 真机回归** — 2026-05-23 用户真机一次性验收通过（新 Möbius 图标 / 日期抽屉滚动手感 / 网络异常 banner / 莫比乌斯 dot 动画 / hadSession 老 key 迁移）。**提醒**：未来换图标仍需用户长按删除旧 Loop → Safari 重新 Add to Home Screen，iOS 主屏图标烧死在系统层
+- 🟡 **真账号场景的 reorder 链路尚未真机回归** — 本次 5-25 demo 模式（in-memory）+ iOS Safari 桌面/手机长按手势验收 OK，**但 prod 真账号下 reorder 走 Firestore writeBatch + onSnapshot 回声链路尚未真测**。第一次自己用真账号在 prod 拖一下确认顺序持久化（理论上 firestore.rules 的 isValidMicroHabit 用 hasRequiredFields 不强制 absent，sortIndex 字段加入应放行）
 - 🟡 **2026-06-22 后**清理 `LEGACY_HAD_SESSION_KEY` (`becoming.hadSession`) 双读代码，TODO 已标
 - 🟡 `public/icons/v2/` 留下了 6 个图标候选 + `preview.html` 对比页，作为设计存档；未来想换风格直接挑别的或基于这套套色再衍生
 - 🟢 **自定义域名 loop.app / getloop.app** 等是下一步可考虑的——template：3 步 UI 点击（Firebase 加 domain + Google OAuth 加 redirect URI + Vercel 加 custom domain）
@@ -204,7 +212,7 @@ prod alias 切到 commit `536a6f1`（revert 后等价 b688016 — 12 个 fixes �
 
 **P1（功能层未做）**：
 - "名字" 残留 6 处（metadata.json 的 `微习惯 (Micro Habits)` / `useStore.ts:254` 注释 / `README.md` URL / `package.json` name / GitHub repo / Vercel slug `micro-habits-zeta`）— 用户明确说"先不改"
-- `useStore.ts:329-350` Hall firestore 写入 dead code（Hall 已改 view-computed 不读 habitPool）。保留不删避免破坏旧数据，下次重构清
+- ~~`useStore.ts:329-350` Hall firestore 写入 dead code（Hall 已改 view-computed 不读 habitPool）。保留不删避免破坏旧数据，下次重构清~~ **5-25 已清** (`d1a57b2`)，详见 §1 最新工作 1
 - `quiet streak` 提醒是否在 Practice 页也展示（用户没明确说，目前仅 Today）
 - Firebase Auth Emulator 真登录态 e2e（spec §10 deferred 到 v2，目前用 demo-flow 5 个测试间接覆盖）
 - 配 OpenAI API key 让 design-shotgun 能真 AI 出图（`~/.gstack/openai.json`）
@@ -685,15 +693,15 @@ c08d49f feat: 修 iOS 移动端登录失败 + 同步推送通知到 git
 
 ```bash
 cd /Users/jiaqizhong/loop                 # ← 新路径，不是 ~/micro-habits 了
-git log --oneline -10                      # 应看到最新 50aac07 docs(handoff): §6.-3
+git log --oneline -10                      # 应看到最新 8b39966 fix(practice): 手机长按
 git status                                 # working tree 应 clean，main 与 origin 同步
-npm run lint && npm test -- --run          # 期望 lint 0 + 43 单测全过
+npm run lint && npm test -- --run          # 期望 lint 0 + 64 单测全过
 ```
 
-**新会话第一件事**：读 handoff §1 + §6.-3（项目级 rename 史）+ §6.-2（品牌史）+ §6.-1（History sheet）。重点：
-1. **当前 prod**：`https://loop-365.vercel.app`（老 `micro-habits-zeta.vercel.app` 仍兼容）；main HEAD = `50aac07`
-2. **5 层全栈 rename 完成**：所有内部表面都叫 loop；老 alias 兼容老 PWA
-3. **未做事项**：iOS PWA 真机回归（莫比乌斯动画 / drag-to-close / 老 key 迁移 / 新 URL PWA 重装后表现），整套需要真机跑一遍
+**新会话第一件事**：读 handoff 头部 + §1（含本次 5-25 三件）+ §6.-3（项目级 rename 史）+ §6.-2（品牌史）。重点：
+1. **当前 prod**：`https://loop-365.vercel.app`（老 `micro-habits-zeta.vercel.app` 仍兼容）；main HEAD = `8b39966`
+2. **Practice 拖拽 feature 已上**：双 section 各自排序，Today 跟随，@dnd-kit 接管交互。drag activator 是序号 01/02
+3. **真账号 reorder 链路尚未真机回归**（详见 §1 未做）—— demo 模式跑通，prod 真账号写入链路待自己用真账号拖一下确认
 4. **配置链记忆点**：Vercel SSO 已关 / Firebase Auth 含 loop-365.vercel.app / OAuth redirect URIs 含 loop-365.vercel.app/__/auth/handler。**未来加任何新域名**（如自定义域名）须同步这 3 处
 
 ### 各文档定位
@@ -712,8 +720,8 @@ npm run preview                  # vite preview :4173 (跑 dist 产物)
 
 # 验证
 npm run lint                     # tsc --noEmit (期望 0 errors)
-npm test -- --run                # vitest 单跑（26 unit）
-npm run test:e2e                 # Playwright (auto-build + preview)（12 e2e: 7 login + 5 demo）
+npm test -- --run                # vitest 单跑（64 unit）
+npm run test:e2e                 # Playwright (auto-build + preview)（17 e2e: 9 demo + 8 login/PWA/responsive）
 
 # 部署
 vercel --prod                    # 生产部署 (需 user authorized + token 有效)
