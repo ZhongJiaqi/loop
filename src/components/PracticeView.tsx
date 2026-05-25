@@ -123,7 +123,7 @@ function CategorySection({
                       }}
                       onDelete={() => store.deleteMicroHabit(habit.id)}
                     >
-                      <div className="flex items-center py-4 border-b border-[#EAE8E3]">
+                      <div className="flex items-center py-4 border-b border-[#EAE8E3] select-none [-webkit-touch-callout:none] [-webkit-user-select:none]">
                         {editingId === habit.id ? (
                           <input
                             autoFocus
@@ -132,7 +132,7 @@ function CategorySection({
                             onChange={e => setEditTitle(e.target.value)}
                             onBlur={() => handleSaveEdit(habit.id)}
                             onKeyDown={e => e.key === 'Enter' && handleSaveEdit(habit.id)}
-                            className="flex-1 bg-transparent text-[15px] font-serif border-b border-[#8A9A86] focus:outline-none text-[#2C2C2C] py-0.5"
+                            className="flex-1 bg-transparent text-[15px] font-serif border-b border-[#8A9A86] focus:outline-none text-[#2C2C2C] py-0.5 select-text [-webkit-user-select:text] [-webkit-touch-callout:default]"
                           />
                         ) : (
                           <span

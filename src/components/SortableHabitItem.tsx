@@ -51,7 +51,7 @@ export default function SortableHabitItem({ id, index, children }: SortableHabit
           {...listeners}
           type="button"
           aria-label={`Reorder item ${index + 1}. Press space or enter to lift, arrow keys to move, space again to drop.`}
-          className="flex items-center justify-center w-8 shrink-0 text-[10px] font-medium text-[#C4C1B9] tracking-widest cursor-grab active:cursor-grabbing touch-none focus:outline-none focus:text-[#8C8C8C] hover:text-[#8C8C8C] transition-colors"
+          className="flex items-center justify-center w-8 shrink-0 text-[10px] font-medium text-[#C4C1B9] tracking-widest cursor-grab active:cursor-grabbing touch-none select-none [-webkit-touch-callout:none] [-webkit-user-select:none] focus:outline-none focus:text-[#8C8C8C] hover:text-[#8C8C8C] transition-colors"
         >
           {(index + 1).toString().padStart(2, '0')}
         </button>
