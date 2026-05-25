@@ -1,4 +1,4 @@
-import { useEffect, type ReactNode } from "react";
+import { useEffect, useRef, type ReactNode, type RefObject } from "react";
 import { format } from "date-fns";
 import { motion, AnimatePresence } from "motion/react";
 import confetti from "canvas-confetti";
@@ -14,6 +14,54 @@ function SectionLabel({ children }: { children: ReactNode }) {
       {children}
     </div>
   );
+}
+
+/**
+ * Fires a region-scoped confetti burst on the false→true rising edge of
+ * `active`, originating from the center of the element pointed to by
+ * `sectionRef`. Skipped when `skipWhen` is true on that edge — used to
+ * defer to the full-page celebration when both happen simultaneously.
+ *
+ * Why ref-based edge tracking: `skipWhen` is also a dep, and a skipWhen
+ * true→false flip while `active` remained true would otherwise spuriously
+ * re-fire (e.g. user uncompletes a habit after page-wide all-done; affirmations'
+ * skipWhen flips off but its active was still true — should NOT celebrate).
+ */
+function useSectionConfetti({
+  active,
+  sectionRef,
+  skipWhen,
+  colors,
+}: {
+  active: boolean;
+  sectionRef: RefObject<HTMLElement | null>;
+  skipWhen: boolean;
+  colors: string[];
+}) {
+  const prevActiveRef = useRef(false);
+  useEffect(() => {
+    const wasActive = prevActiveRef.current;
+    prevActiveRef.current = active;
+    if (skipWhen) return;
+    if (!active || wasActive) return;
+    const el = sectionRef.current;
+    if (!el) return;
+    const rect = el.getBoundingClientRect();
+    const x = (rect.left + rect.width / 2) / window.innerWidth;
+    const y = (rect.top + rect.height / 2) / window.innerHeight;
+    confetti({
+      particleCount: 26,
+      spread: 70,
+      origin: { x, y },
+      colors,
+      disableForReducedMotion: true,
+      gravity: 0.9,
+      scalar: 0.6,
+      startVelocity: 22,
+      ticks: 120,
+    });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [active, skipWhen]);
 }
 
 /**
@@ -228,6 +276,14 @@ export default function TodayView({ store }: TodayViewProps) {
   const allCompleted =
     tasksToday.length > 0 && tasksToday.every((t: Task) => t.completed);
 
+  const affAllCompleted =
+    affirmations.length > 0 && affirmations.every((t: Task) => t.completed);
+  const habAllCompleted =
+    habits.length > 0 && habits.every((t: Task) => t.completed);
+
+  const affSectionRef = useRef<HTMLDivElement>(null);
+  const habSectionRef = useRef<HTMLDivElement>(null);
+
   // Celebrate when the user completes everything for the day.
   // Honors prefers-reduced-motion via `disableForReducedMotion`.
   useEffect(() => {
@@ -242,6 +298,24 @@ export default function TodayView({ store }: TodayViewProps) {
       scalar: 0.8,
     });
   }, [allCompleted]);
+
+  // Section-level celebration: a smaller, region-scoped confetti burst when
+  // either Affirmations or Habits section turns all-complete. Mutually
+  // exclusive with the full-page burst — when the toggle that flipped the
+  // section to "all done" also flipped the page to all-done, only the page
+  // burst plays (avoids visual pile-up).
+  useSectionConfetti({
+    active: affAllCompleted,
+    sectionRef: affSectionRef,
+    skipWhen: allCompleted,
+    colors: ["#D4AF37", "#F3E5AB", "#C9A961", "#E5C97B"],
+  });
+  useSectionConfetti({
+    active: habAllCompleted,
+    sectionRef: habSectionRef,
+    skipWhen: allCompleted,
+    colors: ["#8A9A86", "#A8B5A2", "#6F8267", "#C2CFBC"],
+  });
 
   return (
     <div className="pb-12">
@@ -276,6 +350,7 @@ export default function TodayView({ store }: TodayViewProps) {
         {affirmations.length > 0 && (
           <motion.div
             key="affirmations-group"
+            ref={affSectionRef}
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
@@ -297,6 +372,7 @@ export default function TodayView({ store }: TodayViewProps) {
         {habits.length > 0 && (
           <motion.div
             key="habits-group"
+            ref={habSectionRef}
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
