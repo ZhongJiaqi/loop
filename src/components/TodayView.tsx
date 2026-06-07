@@ -1,8 +1,19 @@
 import { useEffect, useRef, type ReactNode, type RefObject } from "react";
 import { format } from "date-fns";
 import { motion, AnimatePresence } from "motion/react";
-import confetti from "canvas-confetti";
+import type { Options as ConfettiOptions } from "canvas-confetti";
 import { Task, MicroHabit } from "../types";
+
+// canvas-confetti dynamic-imported on first celebration so the package
+// (~10kB raw / ~4kB gzip) stays out of the initial bundle. The promise is
+// module-scoped so subsequent firings reuse the already-loaded module.
+let confettiPromise: Promise<(opts: ConfettiOptions) => unknown> | null = null;
+function fireConfetti(opts: ConfettiOptions): void {
+  if (!confettiPromise) {
+    confettiPromise = import("canvas-confetti").then((m) => m.default);
+  }
+  confettiPromise.then((fire) => fire(opts));
+}
 
 interface TodayViewProps {
   store: any;
@@ -49,7 +60,7 @@ function useSectionConfetti({
     const rect = el.getBoundingClientRect();
     const x = (rect.left + rect.width / 2) / window.innerWidth;
     const y = (rect.top + rect.height / 2) / window.innerHeight;
-    confetti({
+    fireConfetti({
       particleCount: 26,
       spread: 70,
       origin: { x, y },
@@ -288,7 +299,7 @@ export default function TodayView({ store }: TodayViewProps) {
   // Honors prefers-reduced-motion via `disableForReducedMotion`.
   useEffect(() => {
     if (!allCompleted) return;
-    confetti({
+    fireConfetti({
       particleCount: 80,
       spread: 100,
       origin: { y: 0.4 },

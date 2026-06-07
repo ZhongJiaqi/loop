@@ -2,7 +2,9 @@ import { useState, useEffect, lazy, Suspense } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { Calendar, List, Clock } from 'lucide-react';
 import TodayView from './components/TodayView';
-import PracticeView from './components/PracticeView';
+// PracticeView pulls in @dnd-kit/{core,sortable,utilities} for drag-to-reorder.
+// Users land on Today, so defer Practice's chunk (incl. dnd-kit) until they switch tabs.
+const PracticeView = lazy(() => import('./components/PracticeView'));
 // HistoryView is heaviest tab (date-fns date math + calendar grid + Hall of Fame).
 // Lazy-load so Today/Practice tabs don't pay the cost up-front.
 const HistoryView = lazy(() => import('./components/HistoryView'));
@@ -254,7 +256,9 @@ export default function App() {
                 transition={{ duration: 0.4, ease: [0.23, 1, 0.32, 1] }}
                 className="h-full"
               >
-                <PracticeView store={store} />
+                <Suspense fallback={null}>
+                  <PracticeView store={store} />
+                </Suspense>
               </motion.div>
             )}
             {activeTab === 'history' && (
