@@ -126,7 +126,7 @@ export default function MoodPickerSheet({
                 </button>
               </div>
 
-              <div className="flex flex-wrap gap-1.5 max-h-[40vh] overflow-y-auto pb-2">
+              <div className="flex flex-wrap gap-1.5 pb-2">
                 {activeBucket.words.map((w) => {
                   const on = words.includes(w);
                   return (
