@@ -1,4 +1,6 @@
 import { useState } from 'react';
+import { motion } from 'motion/react';
+import { Plus } from 'lucide-react';
 import MoodPickerSheet from './MoodPickerSheet';
 import MoodEntryRow from './MoodEntryRow';
 import { groupEntriesByDay, formatDayLabel } from '../lib/moodFormat';
@@ -40,22 +42,27 @@ export default function MoodView({ store }: MoodViewProps) {
   };
 
   return (
-    <div className="pt-2">
-      <p className="text-[11px] tracking-[0.18em] uppercase text-[#B0AEA9] text-center mb-4">
-        这些天你的感受
-      </p>
+    <div>
+      <div className="mb-10 pt-4">
+        <p className="text-xs text-[#8C8C8C] leading-relaxed font-light tracking-wide italic">
+          Notice what's here.
+        </p>
+      </div>
 
-      <button
+      <motion.button
+        initial={{ opacity: 0 }}
+        animate={{ opacity: 1 }}
         type="button"
         onClick={() => setPickerOpen(true)}
-        className="w-full py-2.5 mb-5 border border-dashed border-[#C9C6BE] rounded-xl text-sm text-[#6B6864] bg-white"
+        className="mb-8 flex items-center gap-2 text-[11px] tracking-[0.18em] text-[#A09E9A] hover:text-[#2C2C2C] transition-colors"
       >
-        + 看见此刻的感受
-      </button>
+        <Plus className="w-3 h-3 stroke-[2]" />
+        <span>看见此刻的感受</span>
+      </motion.button>
 
       {groups.length === 0 ? (
-        <p className="text-center text-xs text-[#B0AEA9] mt-12">
-          还没有记录。点上面那行看见你的感受。
+        <p className="text-xs text-[#A09E9A] mt-12 italic">
+          还没有记录。
         </p>
       ) : (
         groups.map((g) => (
