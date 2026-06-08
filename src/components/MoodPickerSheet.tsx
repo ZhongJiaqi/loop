@@ -126,17 +126,22 @@ export default function MoodPickerSheet({
                 </button>
               </div>
 
-              <div className="flex flex-wrap gap-1.5 max-h-[40vh] overflow-y-auto">
+              <div className="flex flex-wrap gap-x-3 gap-y-1.5 max-h-[40vh] overflow-y-auto pb-2">
                 {activeBucket.words.map((w) => {
                   const on = words.includes(w);
                   return (
                     <button
                       key={w}
                       onClick={() => toggleWord(w)}
-                      className={`text-[11px] px-2.5 py-1 rounded-full transition-colors ${
-                        on ? 'text-white' : 'bg-[#F4F2EC] text-[#2C2C2C]'
+                      className={`text-xs px-0.5 py-1 transition-colors ${
+                        on ? 'text-[#2C2C2C] font-medium' : 'text-[#8C8C8C] hover:text-[#2C2C2C]'
                       }`}
-                      style={on ? { background: activeBucket.color } : undefined}
+                      style={{
+                        fontFamily: 'ui-serif, Georgia, "Songti SC", "宋体", serif',
+                        borderBottom: on
+                          ? `1.5px solid ${activeBucket.color}`
+                          : '1.5px solid transparent',
+                      }}
                       aria-pressed={on}
                     >
                       {w}
