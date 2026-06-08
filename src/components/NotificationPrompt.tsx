@@ -39,16 +39,32 @@ export default function NotificationPrompt({ userId }: { userId: string }) {
   }, [userId]);
 
   const handleEnable = async () => {
-    setRequesting(true);
+    // 乐观 UI：点开启的瞬间立即关闭 prompt，让用户体感"一点就成功"。
+    //
+    // 后台 fire-and-forget 跑 requestPermissionAndSubscribe：
+    //   1. iOS PWA 上 Notification.requestPermission() 弹系统级 dialog，
+    //      用户响应后才进入 SW ready + pushManager.subscribe + setDoc。
+    //   2. 新订阅 subscribe 联系 FCM 走外网，国内 5-15s 物理不可控。
+    //   3. 老订阅（getSubscription 命中）几十 ms。
+    //
+    // 失败处理：
+    //   - permission=denied：用户主动拒绝，不再骚扰，prompt 保持关闭。
+    //   - 其他错误：重新弹出 prompt + 显示错误 + 提供「重试」按钮。
+    //
+    // retry：useEffect 在 permission=granted 时已经做静默 re-subscribe，
+    //   下次 mount / 刷新自然补救，无需在这里维护 localStorage flag。
     setError(null);
+    setRequesting(true);
+    setVisible(false);
     try {
       await requestPermissionAndSubscribe(userId);
-      setVisible(false);
     } catch (e) {
-      setError(e instanceof Error ? e.message : String(e));
+      const msg = e instanceof Error ? e.message : String(e);
+      if (!msg.startsWith('permission=')) {
+        setError(msg);
+        setVisible(true);
+      }
     } finally {
-      // 用 finally 而不是裸调，确保即便 setVisible/setError 抛错也会复位 requesting，
-      // 不让按钮永远停在"请求中..."。
       setRequesting(false);
     }
   };
