@@ -120,9 +120,9 @@ export default function MoodPickerSheet({
                 </div>
                 <button
                   onClick={handleDone}
-                  className="text-xs font-medium text-[#2C2C2C] bg-[#F0EEE8] px-3 py-1.5 rounded-full"
+                  className="text-[11px] uppercase tracking-[0.2em] text-[#A09E9A] hover:text-[#2C2C2C] transition-colors"
                 >
-                  看见了
+                  Done
                 </button>
               </div>
 

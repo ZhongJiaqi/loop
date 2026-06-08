@@ -38,10 +38,10 @@ test.describe('Mood tab (demo flow)', () => {
 
     await page.waitForSelector('nav button');
     await page.locator('nav button').filter({ hasText: 'MOOD' }).click();
-    await expect(page.getByText('还没有记录')).toBeVisible({ timeout: 15000 });
+    await expect(page.getByText('Nothing here yet')).toBeVisible({ timeout: 15000 });
 
     // 打开 picker
-    await page.getByRole('button', { name: /看见此刻的感受/ }).click();
+    await page.getByRole('button', { name: /Notice Now/ }).click();
     await expect(page.getByRole('dialog')).toBeVisible();
 
     // 选 "恐惧" 桶 — 用 evaluate 触发原生 click（sheet 在 mobile viewport 可能超出）
@@ -59,7 +59,7 @@ test.describe('Mood tab (demo flow)', () => {
       .evaluate((btn) => (btn as HTMLButtonElement).click());
 
     // 完成 — sheet 在 mobile viewport 下可能超出 viewport，用 evaluate 触发原生 click
-    await dialog.getByRole('button', { name: '看见了' }).evaluate((btn) =>
+    await dialog.getByRole('button', { name: 'Done' }).evaluate((btn) =>
       (btn as HTMLButtonElement).click(),
     );
 
@@ -81,8 +81,8 @@ test.describe('Mood tab (demo flow)', () => {
     await page.waitForSelector('h1');
     await page.waitForSelector('nav button');
     await page.locator('nav button').filter({ hasText: 'MOOD' }).click();
-    await expect(page.getByText('还没有记录')).toBeVisible({ timeout: 15000 });
-    await page.getByRole('button', { name: /看见此刻的感受/ }).click();
+    await expect(page.getByText('Nothing here yet')).toBeVisible({ timeout: 15000 });
+    await page.getByRole('button', { name: /Notice Now/ }).click();
     await expect(page.getByRole('dialog')).toBeVisible();
 
     // 1. dialog 必须 portal 到 document.body（跳出 motion.div 的 containing block）
@@ -124,15 +124,15 @@ test.describe('Mood tab (demo flow)', () => {
 
     await page.waitForSelector('nav button');
     await page.locator('nav button').filter({ hasText: 'MOOD' }).click();
-    await expect(page.getByText('还没有记录')).toBeVisible({ timeout: 15000 });
-    await page.getByRole('button', { name: /看见此刻的感受/ }).click();
+    await expect(page.getByText('Nothing here yet')).toBeVisible({ timeout: 15000 });
+    await page.getByRole('button', { name: /Notice Now/ }).click();
     await expect(page.getByRole('dialog')).toBeVisible();
     await page
       .getByRole('button', { name: '看见 平和' })
       .evaluate((btn) => (btn as HTMLButtonElement).click());
 
     const dialog = page.getByRole('dialog');
-    await dialog.getByRole('button', { name: '看见了' }).evaluate((btn) =>
+    await dialog.getByRole('button', { name: 'Done' }).evaluate((btn) =>
       (btn as HTMLButtonElement).click(),
     );
 

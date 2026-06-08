@@ -54,15 +54,15 @@ export default function MoodView({ store }: MoodViewProps) {
         animate={{ opacity: 1 }}
         type="button"
         onClick={() => setPickerOpen(true)}
-        className="mb-8 flex items-center gap-2 text-[11px] tracking-[0.18em] text-[#A09E9A] hover:text-[#2C2C2C] transition-colors"
+        className="mb-8 flex items-center gap-2 text-[11px] uppercase tracking-[0.2em] text-[#A09E9A] hover:text-[#2C2C2C] transition-colors"
       >
         <Plus className="w-3 h-3 stroke-[2]" />
-        <span>看见此刻的感受</span>
+        <span>Notice Now</span>
       </motion.button>
 
       {groups.length === 0 ? (
         <p className="text-xs text-[#A09E9A] mt-12 italic">
-          还没有记录。
+          Nothing here yet.
         </p>
       ) : (
         groups.map((g) => (
