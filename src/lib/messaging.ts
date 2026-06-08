@@ -5,26 +5,52 @@ import { withTimeout } from './timeout';
 const VAPID_PUBLIC_KEY = import.meta.env.VITE_FIREBASE_VAPID_KEY;
 
 // 各步骤超时，确保 UI 不会永远卡在"请求中..."。
-// SW 首次访问 / 刚 deploy 强刷时 installing→activating 可能要 20s 才 active；
+// iOS PWA 第一次 install SW 实测能花 30s+（受 import push-handler.js / workbox
+// precache 影响），给 60s 让冷启动场景能过关；
 // FCM 订阅可能受网络环境影响给 15s；Firestore 写入给 10s。
-const SW_READY_TIMEOUT_MS = 20000;
-const PUSH_SUBSCRIBE_TIMEOUT_MS = 15000;
-const FIRESTORE_WRITE_TIMEOUT_MS = 10000;
+const SW_READY_TIMEOUT_MS = 60_000;
+const PUSH_SUBSCRIBE_TIMEOUT_MS = 15_000;
+const FIRESTORE_WRITE_TIMEOUT_MS = 10_000;
+
+/**
+ * 给当前 SW registration 的状态拍一张快照，写进错误消息便于诊断。
+ * 例：`installing(installed),active(activated),scope=/`
+ */
+function snapshotRegistration(reg: ServiceWorkerRegistration | null): string {
+  if (!reg) return 'reg=none';
+  const parts: string[] = [];
+  if (reg.installing) parts.push(`installing(${reg.installing.state})`);
+  if (reg.waiting) parts.push(`waiting(${reg.waiting.state})`);
+  if (reg.active) parts.push(`active(${reg.active.state})`);
+  try {
+    parts.push(`scope=${new URL(reg.scope).pathname}`);
+  } catch {
+    /* ignore malformed scope */
+  }
+  return parts.join(',');
+}
 
 /**
  * Wait for the page's Service Worker to reach the active state.
  *
- * `navigator.serviceWorker.ready` resolves immediately if a SW is active,
- * otherwise it waits — potentially forever if registration failed. We
- * distinguish three states up front so error messages tell the user what
- * to actually do:
+ * 不再依赖裸 `navigator.serviceWorker.ready`——后者在 SW 卡在 installing/redundant
+ * 时会永久 hang。改为：
  *
- * - No registration at all  → "SW 未注册，请刷新页面"（vite-plugin-pwa fails
- *   silently in dev, or SW file 404 in prod; refresh re-triggers register）
- * - Already active          → return immediately
- * - installing / waiting    → race against `ready` with a generous timeout
+ * 1. `getRegistration()` 拿不到 → 立即报"未注册"
+ * 2. 已 active 且无 installing/waiting → 立即 return
+ * 3. 否则同时监听：
+ *    - installing/waiting worker 的 `statechange`：state === 'activated' → 成功；
+ *      state === 'redundant' → 立即失败（install 出错，再等也是空等）
+ *    - `updatefound` 事件：覆盖事后才出现的新 SW
+ *    - `navigator.serviceWorker.ready` 作为兜底
+ *    - 60s 超时
+ *
+ * 超时错误消息内嵌 SW 状态 snapshot，便于在 NotificationPrompt UI 上直接读到
+ * 「卡在哪个 state」。
  */
-async function waitForServiceWorkerReady(): Promise<ServiceWorkerRegistration> {
+async function waitForServiceWorkerReady(
+  timeoutMs: number = SW_READY_TIMEOUT_MS,
+): Promise<ServiceWorkerRegistration> {
   const reg = await navigator.serviceWorker.getRegistration();
   if (!reg) {
     throw new Error('Service Worker 尚未注册，请刷新页面后重试');
@@ -32,11 +58,59 @@ async function waitForServiceWorkerReady(): Promise<ServiceWorkerRegistration> {
   if (reg.active && !reg.installing && !reg.waiting) {
     return reg;
   }
-  return withTimeout(
-    navigator.serviceWorker.ready,
-    SW_READY_TIMEOUT_MS,
-    'Service Worker 初始化超时，请刷新页面后重试',
-  );
+
+  return new Promise<ServiceWorkerRegistration>((resolve, reject) => {
+    let settled = false;
+
+    const finish = (err?: Error) => {
+      if (settled) return;
+      settled = true;
+      clearTimeout(timer);
+      if (err) reject(err);
+      else resolve(reg);
+    };
+
+    const trackWorker = (sw: ServiceWorker | null) => {
+      if (!sw) return;
+      if (sw.state === 'activated') {
+        finish();
+        return;
+      }
+      if (sw.state === 'redundant') {
+        finish(
+          new Error(
+            `Service Worker 安装失败（redundant；${snapshotRegistration(reg)}）。请完全关闭应用后重新打开。`,
+          ),
+        );
+        return;
+      }
+      sw.addEventListener('statechange', () => {
+        if (sw.state === 'activated') finish();
+        else if (sw.state === 'redundant') {
+          finish(
+            new Error(
+              `Service Worker 安装失败（redundant；${snapshotRegistration(reg)}）。请完全关闭应用后重新打开。`,
+            ),
+          );
+        }
+      });
+    };
+
+    trackWorker(reg.installing);
+    trackWorker(reg.waiting);
+    reg.addEventListener('updatefound', () => trackWorker(reg.installing));
+
+    // 兜底：active 可能在我们绑监听前就 ready 了
+    navigator.serviceWorker.ready.then(() => finish()).catch(() => {});
+
+    const timer = setTimeout(() => {
+      finish(
+        new Error(
+          `Service Worker 初始化超时（${Math.round(timeoutMs / 1000)}s；${snapshotRegistration(reg)}）。请完全关闭应用后重新打开。`,
+        ),
+      );
+    }, timeoutMs);
+  });
 }
 
 function urlBase64ToUint8Array(base64String: string): Uint8Array {
@@ -116,6 +190,43 @@ export async function requestPermissionAndSubscribe(userId: string): Promise<Pus
   );
 
   return subscription;
+}
+
+/**
+ * 当 Service Worker 卡死时的逃生通道。
+ *
+ * 触发场景：navigator.serviceWorker.ready 超时、SW 进入 redundant、
+ * 旧版 SW 缓存死链等。
+ *
+ * 流程：
+ *   1. unregister 所有当前 origin 的 SW registration
+ *   2. 删掉所有 caches（workbox precache / runtime cache 都进 CacheStorage）
+ *   3. window.location.reload() — vite-plugin-pwa 会在 reload 后重新注册
+ *
+ * 每步独立 try/catch，确保 reload 一定执行；用户即便在 SW 死局也能脱身。
+ * iOS PWA 上特别有效：等价于「删除 PWA + 重装」，但不需要用户离开 app。
+ */
+export async function resetServiceWorker(): Promise<void> {
+  try {
+    if ('serviceWorker' in navigator) {
+      const regs = await navigator.serviceWorker.getRegistrations();
+      await Promise.all(regs.map((r) => r.unregister().catch(() => false)));
+    }
+  } catch {
+    /* ignore — continue with cache + reload */
+  }
+
+  try {
+    if ('caches' in window) {
+      const names = await caches.keys();
+      await Promise.all(names.map((n) => caches.delete(n).catch(() => false)));
+    }
+  } catch {
+    /* ignore */
+  }
+
+  // reload 之后 vite-plugin-pwa 会重新跑一遍 register + install + activate
+  window.location.reload();
 }
 
 /**

@@ -1,13 +1,21 @@
 import { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { Bell, X } from 'lucide-react';
-import { requestPermissionAndSubscribe, isPushSupported, isIOSNonStandalone } from '../lib/messaging';
+import { requestPermissionAndSubscribe, isPushSupported, isIOSNonStandalone, resetServiceWorker } from '../lib/messaging';
 
 const DISMISSED_KEY = 'notificationPromptDismissed';
+
+// 错误里包含「Service Worker」关键字 → 多半是 SW 卡住 / redundant，
+// 提供「重置 Service Worker」一键逃生按钮（unregister + clear caches + reload）。
+function isServiceWorkerError(msg: string | null): boolean {
+  if (!msg) return false;
+  return msg.includes('Service Worker');
+}
 
 export default function NotificationPrompt({ userId }: { userId: string }) {
   const [visible, setVisible] = useState(false);
   const [requesting, setRequesting] = useState(false);
+  const [resetting, setResetting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [iosHint, setIosHint] = useState(false);
 
@@ -50,6 +58,17 @@ export default function NotificationPrompt({ userId }: { userId: string }) {
     setVisible(false);
   };
 
+  const handleResetSW = async () => {
+    setResetting(true);
+    try {
+      await resetServiceWorker();
+      // resetServiceWorker 内部会 reload，下面这行通常走不到
+    } catch (e) {
+      setError(e instanceof Error ? e.message : String(e));
+      setResetting(false);
+    }
+  };
+
   return (
     <AnimatePresence>
       {visible && (
@@ -83,13 +102,25 @@ export default function NotificationPrompt({ userId }: { userId: string }) {
                   {error && (
                     <p className="text-[10px] text-red-500 mt-2 break-all">{error}</p>
                   )}
-                  <button
-                    onClick={handleEnable}
-                    disabled={requesting}
-                    className="mt-3 text-[11px] font-medium tracking-widest uppercase bg-[#1A1A1A] text-[#F9F8F6] px-4 py-1.5 rounded-full hover:bg-[#2C2C2C] transition-colors disabled:opacity-50"
-                  >
-                    {requesting ? '请求中...' : error ? '重试' : '开启'}
-                  </button>
+                  <div className="mt-3 flex flex-wrap items-center gap-2">
+                    <button
+                      onClick={handleEnable}
+                      disabled={requesting || resetting}
+                      className="text-[11px] font-medium tracking-widest uppercase bg-[#1A1A1A] text-[#F9F8F6] px-4 py-1.5 rounded-full hover:bg-[#2C2C2C] transition-colors disabled:opacity-50"
+                    >
+                      {requesting ? '请求中...' : error ? '重试' : '开启'}
+                    </button>
+                    {isServiceWorkerError(error) && (
+                      <button
+                        onClick={handleResetSW}
+                        disabled={requesting || resetting}
+                        className="text-[11px] font-medium tracking-widest uppercase text-[#8A9A86] border border-[#8A9A86]/40 px-3 py-1.5 rounded-full hover:bg-[#8A9A86]/10 transition-colors disabled:opacity-50"
+                        title="清除卡住的 Service Worker 后刷新页面"
+                      >
+                        {resetting ? '重置中...' : '重置 SW'}
+                      </button>
+                    )}
+                  </div>
                 </>
               )}
             </div>

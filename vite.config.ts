@@ -30,6 +30,14 @@ export default defineConfig(({mode}) => {
         workbox: {
           globPatterns: ['**/*.{js,css,html,png,svg,ico,woff2}'],
           importScripts: ['/push-handler.js'],
+          // 让新 SW 一旦 install 完成就立即跳过 waiting + 接管所有 client。
+          // 跟 registerType: 'autoUpdate' 配套，避免新 SW 长期停在 waiting
+          // 等到所有 tab 关闭。iOS PWA 上「关闭所有 tab」几乎不会发生，
+          // 不开这两个会让用户长期跑在旧 SW 上，且新 SW 一直 install/waiting，
+          // navigator.serviceWorker.ready 容易陷入 W3C ServiceWorker issue #357
+          // 描述的 race（ready promise 锁在 outdated registration 上）。
+          skipWaiting: true,
+          clientsClaim: true,
           // Firebase Auth OAuth handler 反代路径，必须直通到 Vercel rewrite，禁止 SW 拦截 + 替换为 SPA index.html
           navigateFallbackDenylist: [/^\/__\//],
           runtimeCaching: [
