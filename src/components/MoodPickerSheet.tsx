@@ -54,7 +54,7 @@ export default function MoodPickerSheet({
       aria-label="选择此刻的情绪"
     >
       <div
-        className="absolute inset-x-0 bottom-0 bg-[#F9F8F6] rounded-t-3xl p-4 pb-6 max-w-md mx-auto"
+        className="absolute inset-x-0 bottom-0 bg-[#F9F8F6] rounded-t-3xl p-4 pb-6 max-w-md mx-auto max-h-[90vh] overflow-y-auto"
         onClick={(e) => e.stopPropagation()}
       >
         <div className="w-9 h-1 rounded-full bg-[#D8D5CD] mx-auto mb-3" />
