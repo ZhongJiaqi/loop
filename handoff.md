@@ -1,14 +1,268 @@
 # Loop — 交接文档
 
-> 上次更新: 2026-05-25 晚
-> **新会话从这里开始**：项目稳定运行在 `https://loop-365.vercel.app`（**Vercel project domain，`vercel --prod` 部署完后自动 promote**；注意：**Vercel 不连 GitHub auto-deploy**，git push 后仍需手动 `vercel --prod`）。main HEAD = `5e13871`，working tree clean。lint 0 / 65 单测 / 17 e2e 全过。最近一次发版：5-25 晚 网络瞬态 banner 防抖修复（链接前 3 个 commit：section confetti + ?allDone demo / 超时拉长 + SW 状态精细化）。
+> 上次更新: 2026-06-08 深夜（第六轮 — /loop 自主推进 + 单测锁定）
+> **新会话从这里开始**：项目稳定运行在 `https://loop-365.vercel.app`。origin/main HEAD = `bb05ce3`（本地领先 1 个 HANDOFF commit，**HANDOFF-only 不 push**），working tree clean。lint 0 / **95 单测 / 21 e2e** 全过（之前 91/21；NotificationPrompt 乐观 UI 4 个不变式单测）。最近一轮发版：**6-08 深夜六连击 — ① SW 超时（`70c8bc9`）② Mood silent failure + rules deploy（`97147eb`）③ Mood 字体一致化（`6aa2fb3`）④ SW ready + 升级链路（`618fff4`）⑤ 开启提醒乐观 UI（`9bc6568`）⑥ 乐观 UI 单测锁定（`bb05ce3`，纯 test 改动，无 deploy）**。
+
+### 2026-06-08 深夜追加 — NotificationPrompt 乐观 UI 单测锁定（`bb05ce3`）
+
+用户问「你不可以自己验证吗」。能力边界：单测可锁 UI 层不变式，真机 push 链路（iOS PWA + FCM + Service Worker）必须靠真机验。两者都重要，单测做完。
+
+`tests/NotificationPrompt.test.tsx` 锁死 4 个关键不变式：
+1. **点开启按钮 → prompt 在 100ms 内消失**（核心，乐观 UI 的契约 — `setVisible(false)` 必须在 `await` 之前；任何未来把 await 提前的回归会让这个测试挂掉）
+2. 后台抛非 permission denied 错误 → prompt 重新弹出 + 错误 + 「重试」按钮
+3. 后台抛 `permission=denied` → prompt 保持关闭（不骚扰用户）
+4. `permission=granted` 时不显示 prompt + `useEffect` 静默 re-subscribe（已订阅用户天然 retry）
+
+测试实现：
+- `vi.mock('../src/lib/messaging')` 替换 `requestPermissionAndSubscribe` 等为受控 Promise
+- `vi.mock('motion/react')` 把 `motion.*` + `AnimatePresence` 透明化，避免 jsdom 下 framer-motion exit 动画不完成留 ghost DOM
+- `afterEach(cleanup)` + stub `localStorage`（vitest 4.x 默认 localStorage 缺 `.clear`）
+
+**注意**：单测验证 UI 层 React state → DOM 同步，无法替代用户真机验证「3 秒内 push 真订阅成功」。后者依赖 iOS Safari 系统弹窗时机 + FCM 联网耗时 + Firestore setDoc 延迟，无法在 headless 环境完整模拟。
+
+### 2026-06-08 深夜追加 — 开启提醒乐观 UI（`9bc6568`，/loop autonomous）
+
+用户用 `/loop` 指定目标：「点开启 3 秒内成功」。
+
+**技术现实**：`requestPermissionAndSubscribe` 链路里 `pushManager.subscribe` 走外网联系 FCM（国内 5-15s），物理无法做到 3s 内真完成。但用户原话「之前一点就成功」实际是体感诉求：**prompt 不卡住、立即消失就算成功**。
+
+**修复**（commit `9bc6568`，已 deploy `loop-ehhpellje` 自动 promote `loop-365.vercel.app`）：
+- `NotificationPrompt.handleEnable` 改乐观 UI：
+  - 点开启瞬间 `setVisible(false)`，prompt 立即消失
+  - `requestPermissionAndSubscribe` 在后台 fire-and-forget 跑（系统弹窗 / SW ready / FCM subscribe / Firestore setDoc）
+  - 失败分两类：`permission=denied` 用户主动拒绝→保持关闭不骚扰；其他错误→重新弹出 prompt 显示错误 + 提供「重试」按钮
+- **retry 链路**：useEffect 在 `Notification.permission === 'granted'` 时已经无条件做 silent re-subscribe，下次 mount/刷新天然补救后台失败，不需要 localStorage flag
+
+**体感预期**：用户在新 SW 接管后，点开启 → iOS 系统弹窗 → 点允许 → prompt 立即消失（视觉上"一点就成功"）。后台 FCM 订阅 5-15s 继续跑，失败的话下次进 PWA 静默重试。
+
+**前提**：用户的 PWA 必须先杀掉重开一次让新 SW 接管（带 `618fff4` 的 `main.tsx` 升级链路逻辑），否则旧 SW 还卡 waiting。+ 网络通（FCM/Firestore 在国内常被墙，需要代理/VPN）。
+
+### 未推进（用户对方向有异议，等其裁决）
+
+用户在第四轮后截图显示 SW 卡 installing + 网络异常 banner，明确说「我的网络没问题」反驳 banner 诊断。我提议的「`resetServiceWorker` 也清 Firestore IndexedDB persistence」修复方向被用户打断。此方向涉及 `terminate(db)` + `clearIndexedDbPersistence(db)`，理论上能解决 SDK 启动卡 / `onSnapshot` 不 fire 导致 banner 误报的场景。**未推进，待用户回归后对齐**。
+
+### 2026-06-08 深夜追加 — SW ready 条件 + 升级链路真正修复（`618fff4`）
+
+用户反馈：「开启通知请求要等很久」「不能每次都要点重置才好吧」。挖到 `70c8bc9` 漏修的根因：
+
+**根因 A — ready 判定过严**：`waitForServiceWorkerReady` 之前要求 `reg.active && !reg.installing && !reg.waiting` 才立即返回。但打开 PWA 时浏览器后台总会拉新 SW（vite-plugin-pwa autoUpdate），`reg.installing` 立即非 null → 条件 false → 60s statechange 等待。**实际开启提醒只需要任意 active SW**（旧版也行，push subscription endpoint 跟 SW 版本无关），完全不必等新 SW 把 1.1MB precache fetch 完。
+
+**根因 B — 升级链路 broken**：用户主屏装的旧版 SW **没有 `self.skipWaiting()`**（早期版本，那时还没配 workbox skipWaiting）。新 SW install 后卡 waiting 永不 activate（iOS PWA 上"关闭所有 tab"几乎不会发生）。即便 statechange 等 60s 也是空等 → 用户被迫点「重置 SW」一键 unregister 才能挣脱。这是为什么用户感觉「每次都要 reset」。
+
+**修复**（commit `618fff4`，已 deploy 自动 promote `loop-365.vercel.app`）：
+1. **`messaging.ts` ready 条件放宽 + 推升级**：
+   - `reg.active` 就立即返回（不管 installing/waiting）
+   - 不阻塞地 `reg.update()` + 给 `reg.waiting` 发 `postMessage({type: 'SKIP_WAITING'})`
+   - 仅在真冷启动（reg.active=null）才走 statechange 等待
+   - 超时 60s → **15s**（冷启动够用，再长直接给 reset 按钮）
+2. **`main.tsx` 加回温和的 SW lifecycle 管理**（**不含** controllerchange→reload race —— 那是 70c8bc9 修掉的 Safari WebKit bug 源头）：
+   - mount 时 `reg.update()` + 处理已 waiting 的旧 SW（postMessage SKIP_WAITING）
+   - `updatefound` → `installing.statechange === 'installed'` + 有 controller → 主动 postMessage SKIP_WAITING，让新 SW 跳过 waiting 立即 activate
+   - 这条链路修复主屏装的旧版 SW 升级问题
+
+**用户体验承诺**：杀掉 PWA 重开一次（让 main.tsx 新逻辑跑一次 + SKIP_WAITING 接管旧 SW），**之后开启提醒永远「一点就成功」**。
+
+**对照 70c8bc9 的关系**：70c8bc9 是「打底」（push-handler.js try/catch + workbox skipWaiting + reset 逃生通道 + 错误诊断 snapshot），618fff4 是「精修」（ready 条件 + 升级链路）。两个合在一起才是完整修复，缺一不可。
+
+### 2026-06-08 深夜追加 — Mood 字体一致化（`6aa2fb3`）
+
+用户反馈「字体有点乱」。诊断后定位 Loop 全站**两族字体系统**：
+
+- **「内容文字」族 = `font-serif` 类**（Playfair Display 英文 + ui-serif → Georgia → 系统中文 serif fallback；中文实际渲染走宋体/Songti SC）：habit/affirmation 标题、Hall 项、HistoryView 习惯名、所有视图空态、月份/数字 header
+- **「装饰文字」族 = 默认 Inter sans**：tagline（`font-light italic`）、SectionLabel 类的 `uppercase tracking-[0.2em]`、时间数字、Done/主按钮 uppercase
+
+Mood 三组件之前散乱：MoodEntryRow 桶名「愤怒」是 sans，但 MoodPickerSheet 同一个「愤怒」内联了 `fontFamily: ui-serif, Georgia, "Songti SC"` 走 serif → **同一条数据在 feed 和 picker 里字体不一样**，是用户最直接的「乱」感知。
+
+修复（commit `6aa2fb3`，已 deploy `loop-n6hd83gfd` 自动 promote `loop-365.vercel.app`）：
+- `MoodEntryRow`: 桶名 + 词列表加 `font-serif`
+- `MoodPickerSheet`: 桶名 / 活跃桶名 / motive / chip 全部删内联 fontFamily 改用 `font-serif` 类
+- `MoodView`: 空态 `text-xs italic` → `text-sm font-serif italic text-[#B0ADA5]`（跟 PracticeView/HistoryView 空态完全一致）；日期 header 加 `font-serif`
+
+**最终 Mood 字体矩阵**：
+
+| 位置 | className |
+|---|---|
+| Tagline `See your feelings.` | `text-xs ... font-light tracking-wide italic`（Inter 装饰族） |
+| 主按钮 `+ SEE FEELINGS` | `text-[11px] uppercase tracking-[0.2em]`（装饰族） |
+| 空态 `Nothing here yet.` | `text-sm font-serif italic text-[#B0ADA5]`（内容族） |
+| 日期 header `今天 6/8 Sat` | `text-[13px] font-serif font-semibold`（内容族） |
+| 计数 `{N} 次` | `text-[10px]`（装饰族） |
+| 时间 `21:25` | `text-[10px]`（装饰族） |
+| 桶名 `愤怒 / 平和 ...`（picker + feed 一致） | `font-serif`（内容族） |
+| Motive 副字 `想生存` | `font-serif italic`（内容族） |
+| 词典 chip 词 `焦虑 / 不安` | `font-serif`（内容族） |
+| Done 按钮 | `text-[11px] uppercase tracking-[0.2em]`（装饰族） |
+
+未来改 Mood 任何文字一律按这张表，别再内联 fontFamily。
 > 历史名字演化：**Micro Habits → Becoming（5-03）→ Loop（5-22）**。HANDOFF 历史段保留原品牌词作为时间戳锚点，请按段头日期判断当时品牌。
+
+### 2026-06-08 深夜追加 — Mood「点 Done 没反应」根因（`97147eb`）
+
+用户验收 SW 修复后，**iOS PWA 上 Mood 选了词典点 Done 无任何反应**。挖根因：
+
+1. **firestore.rules 6-08 早 Phase 1 加了 `isValidMood` + `moods/{moodId}` match block，但当时漏跑 `firebase deploy --only firestore`**。线上 Firestore 跑的仍是 5-25 那版规则，根本没有 mood 集合允许写的规则 → 真账号写 mood 文档被默认拒绝。demo mode 用 `useDemoStore` in-memory store，e2e 不走真 Firestore，所以一直没暴露。**本次手动跑 `firebase deploy --only firestore`，rules 已 released 到 `cloud.firestore`。**
+2. **`MoodView.handleDone` 是 async 没 try/catch** → `store.addMood` 抛错时 `setPickerOpen(false)` 不执行 → sheet 不关 → 用户感知「点 Done 没反应」，错误被 promise rejection 吞掉无诊断信号。
+
+修复（commit `97147eb`，已 deploy `loop-hb2d1zgnc` 自动 promote `loop-365.vercel.app`）：
+- `MoodView.tsx`: handleDone try/catch；`saving` / `error` 两个 state，传给 sheet；handleClose 统一清 error
+- `MoodPickerSheet.tsx`: 新 props `saving` + `error`；saving 时 Done 按钮 → 「Saving…」 + disabled + 阻止 sheet onClose；error 时下方红字 inline 显示「保存失败：{error}」+ role="alert"
+
+**未来防回归（流程性）**：任何 `firestore.rules` 变更都必须 `firebase deploy --only firestore` 配套；5-03 Becoming refactor 删 task.type 字段后也漏过一次（`08b13ac` 才补上）—— **两次同款失误**。建议日后改 rules 时把 firebase deploy 加进 spec/plan 的 DoD checklist。
 
 ---
 
 ## 1. 一句话现状
 
-**品牌**：Loop。**哲学**：Thoughts → Feelings → Actions → Identity → 反过来强化 Thoughts（莫比乌斯闭环）。**产品形态**：两类一等内容——Affirmations（thoughts/feelings）+ Habits（actions），21-Day Hall = identity achievements。三 tab：Today / Practice / History。
+**品牌**：Loop。**哲学**：Thoughts → Feelings → Actions → Identity 闭环 + Mood 觉察空间反 loop 主旋律的"停 / 看"区。**产品形态**：4 类内容——Affirmations + Habits + 21-Day Hall + **Mood**。**4 tab**：Today / Practice / Mood / History。
+
+**最新一轮工作**（2026-06-08 深夜 — iOS PWA SW 反复超时根因修复，1 个 prod commit `70c8bc9`）：
+
+用户当晚在 iOS PWA 点「开启提醒」报错「Service Worker 初始化超时，请刷新页面后重试超时（20s）」。**历史第三次出现同类报错**（8s → 20s → 现在 20s 仍不够），单纯延长超时治标不治本。综合 PWA-POLICE / webscraft.org 2026 / W3C ServiceWorker issue #357 调研，定位**三条互相加剧的根因链**，atomic 一次性修掉：
+
+1. **`main.tsx` 手动 `reg.update + SKIP_WAITING + controllerchange→reload` 与 vite-plugin-pwa autoUpdate 重叠控制** → 触发 Safari「SW install 期间页面 navigation 时杀掉 SW」的 WebKit bug → SW 进入 redundant，`navigator.serviceWorker.ready` 永挂。
+2. **`public/push-handler.js` 缺 try/catch** → iOS 偶发非 JSON 测试 payload → `event.data.json()` 抛错 → SW crash → iOS 自动取消 subscription → 用户每次都得重新订阅 → 又走 SW init 链路 → 再次掉进死局。**这是"反复出现"的根本原因**。
+3. **`vite.config.ts` workbox 没设 `skipWaiting/clientsClaim`** → 新 SW 长期 waiting，`navigator.serviceWorker.ready` 容易锁在 outdated registration（W3C SW issue #357 描述的 race）。
+
+修复（7 文件 1 commit）：
+- `public/push-handler.js`：payload 解析 try/catch + JSON 失败回退 `text()` + 始终调 `showNotification`（iOS silent push 兜底）
+- `src/main.tsx`：移除冗余 SW 控制代码，交给 vite-plugin-pwa autoUpdate 自动接管
+- `vite.config.ts`：workbox 加 `skipWaiting: true, clientsClaim: true`
+- `src/lib/messaging.ts`：SW 等待逻辑全面改进
+  - 超时 20s → **60s**（iOS 首装实测 30s+）
+  - 不再裸 race `navigator.serviceWorker.ready`，改为监听 installing/waiting worker 的 `statechange`（`'activated'` 立即 resolve；`'redundant'` 立即报错而非空等）
+  - 兜底监听 `updatefound` + ready promise
+  - 错误消息携带 **SW 状态 snapshot**（installing/waiting/active 各自的 state + scope）便于诊断
+  - 新增 **`resetServiceWorker()` 一键逃生**：unregister 所有 SW + 删所有 caches + `window.location.reload()`，每步独立 try/catch 保证 reload 一定执行
+- `src/components/NotificationPrompt.tsx`：错误消息含「Service Worker」时多渲染浅描边「**重置 SW**」按钮调用 `resetServiceWorker`，给用户当下即时逃生通道
+- `tests/pushHandler.test.ts` (+6) / `tests/resetServiceWorker.test.ts` (+5)：91/91 单测，21/21 e2e
+
+线上验证：`curl https://loop-365.vercel.app/sw.js | grep skipWaiting` → 1 match；`curl push-handler.js | grep try` → 7 matches；Vercel deploy `dpl_D6MoAh3UxqwNnXXFRYuahiKJWL6p` ● Ready，alias `loop-365.vercel.app` + `micro-habits-zeta.vercel.app` 自动 promote。
+
+**当下用户应急步骤**（如果新 SW 还卡）：iOS PWA 里报错时点新增的「**重置 SW**」按钮一键清掉旧 SW + caches + reload；如还不行，长按 PWA 图标删除 → Safari 重新 Add to Home Screen → 主屏打开等几秒再开提醒。
+
+**未做（明确留意）**：
+- 🟡 用户真机回归「开启提醒」一次通过；如还卡再点「重置 SW」按钮
+- 🟡 旧 push subscription endpoint 可能累积在 Firestore（`users/{uid}/pushSubscriptions`），未来可以加 cleanup
+- 🟢 W3C SW #357 race 浏览器没修，statechange + 60s timeout + 一键 reset 足够稳；极端 case 可考虑 `auth.authStateReady()` + cookie session marker
+
+---
+
+## 1.5 上一轮工作（6-08 全天 — Mood 觉察空间从 MVP 到 UI 一致化，8 个 phase）：
+
+### Phase 1 — Mood MVP 上线（10 commit `56ef098..63cb8c1`）
+
+全流程 brainstorming + writing-plans + executing-plans skill 做出。
+
+- **产品定位**：MVP 集成进 loop 但**数据完全隔离** + **视觉/逻辑独立**——未来可无痛拆为独立产品「看见」。**反 loop "塑造/推进"主旋律**，定位是"停 / 看 / 不评价"。基于用户告白："INTJ 通过过度分析逃避感受"。
+- **核心交互**：选 9 桶（霍金斯能量层级 万念俱灰 → 平和） → 底部 sheet 多选词（30-100 个/桶细分词，从图 OCR 整理 450+ 词全集）→ 完成保存。可只记桶不选词。主视图按天分组极简流水「今天 6/8 Sat · 2 次」+ 时间·色点·桶·词。swipe-left 编辑/删除（复用 SwipeActions 手势组件）。
+- **数据**：独立集合 `users/{uid}/moods/`。MoodEntry { id, userId, bucket, words, createdAt, updatedAt? }。Firestore rules 加 `isValidMood()` + match block。
+- **代码隔离**：`src/components/Mood*.tsx` (PickerSheet/EntryRow/View) + `src/lib/moods.ts` (canonical 数据 + bucketById) + `src/lib/moodFormat.ts` (日期分组) + `src/useMoodStore.ts` (独立 hook)。**展示组件零复用** Affirmation/Habit；唯一复用 SwipeActions（手势）+ NetworkStatusBanner + withTimeout（基础设施）。
+- **MVP scope**：记录 / 编辑 / 删除。**不做**：note 备注（防过度分析）/ confetti / streak / Hall / 跟 habit 关联 / 曲线统计。
+- **底部 nav**：3 → 4 tab。顺序 `Today · Practice · Mood · History`。Mood icon = Lucide `Eye`（伏笔未来「看见」产品名）。
+- **bundle**：MoodView 独立 lazy chunk **20.08 kB / gzip 8.75 kB**。新增依赖 `date-fns-tz`。首屏 gzip 增量 +0.9 kB。
+- **设计 doc** `docs/superpowers/specs/2026-06-08-mood-design.html`。**实施 plan** `docs/superpowers/plans/2026-06-08-mood-tab.html`。
+
+### Phase 2 — Portal fix + 防回归 e2e（2 commit `76c368b` + `f143091`）
+
+**Bug**：父链 `motion.div` 的 `filter: blur(0px)` 入场动画**创建新 containing block**，让 sheet 的 `fixed inset-0` 不再 anchor viewport，导致 sheet 顶部超出 viewport 204px（前 2 行桶被截）。
+
+- **Fix**：`createPortal` 把 sheet 渲染到 `document.body` 跳出 motion.div。SSR 兜底 `if (typeof document === 'undefined') return null;`。
+- **防回归 e2e**：新增第 4 个 test「打开 picker 后 9 个桶全部在 viewport 内」断言 (a) `dialog.parentElement === document.body` (b) 9 个 cell 全 `getBoundingClientRect()` 在 viewport 内。**未来加 transform/filter 父层会被这 test 拒绝**。
+- **诊断教训**：framer-motion 经典陷阱。任何祖先 `filter` / `transform` / `will-change` 都创建 containing block，破坏 `fixed` 的 viewport anchor。
+
+### Phase 3 — 文案对齐"看见感受"主旋律（1 commit `3db2b85`）
+
+7 处可见文案对齐用户告白「情绪被看见就会消失」：
+
+| 位置 | 改前 | 改后 |
+|---|---|---|
+| subtitle | 这些天你的样子 | 这些天你的感受 |
+| 主按钮 | + 此刻你怎么样？ | + 看见此刻的感受 |
+| 空态 | 还没有记录。点上面那行命名一下你现在的状态。 | 还没有记录。点上面那行看见你的感受。 |
+| sheet question | 此刻你怎么样？ | 看见此刻的感受 |
+| sheet aria-label | 选择此刻的情绪 | 看见此刻的感受 |
+| 桶 aria-label | 选择 X | 看见 X |
+| 完成按钮 | 完成 | 看见了 |
+
+### Phase 4 — design-review skill UI 一致化（4 commit `f811f69..a6fa0aa`）
+
+跑 `design-review` skill 解决用户反馈"UI 有点土，跟 loop 整体不一致"问题。诊断 7 个不一致点 → 4 个原子 fix commit：
+
+- **Fix-A `f811f69` MoodView 头部**：(a) UPPERCASE 中文 subtitle → italic serif tagline 「Notice what's here.」(跟 Today「You are what you repeatedly do.」/ Practice「Decide what to repeat.」同款)。(b) dashed border 大块按钮 → Plus icon + UPPERCASE letterspacing 极淡灰 (跟 Practice 的「Add Affirmation」同款 motion.button)。(c) 空态短句 italic。
+- **Fix-B `85a66db` MoodPickerSheet 桶**：3 problems 一起修。(a) 3×3 dashboard card grid → 列表式 (色点 + serif 桶名 + 极淡灰 italic motive 副字，跟 Practice 行同款骨架)。(b) 杂乱色谱 (深紫灰 + 蓝灰 + 暖棕 + 暗红 + 黄棕 + 绿 + 天蓝) → 全部降饱和到水墨淡彩家族 (#5C5460 万念俱灰 / #6A6A78 悲苦 / #7A7A85 恐惧 / #8A7E6A 贪求 / #A87A6A 愤怒 / #B09870 自尊自傲 / #95A890 无畏 / #B0C2AD 接纳 / #C5D0D2 平和)。(c) 桶名 sans-serif → serif (ui-serif/Georgia/Songti SC)。Sheet header 也清理：去掉 MOOD label，留 italic serif tagline。
+- **Fix-C `5457932` 词云**（首版）：灰圆胶囊 chip → 纯文字 + serif + 选中桶色细下划线（**Phase 7 又改了**）。
+- **Fix-D `a6fa0aa` Sheet 蒙层**：`bg-black/30`（loop 整套没有黑蒙层）→ `bg-[#F9F8F6]/75 backdrop-blur-sm`（米色半透 + 轻模糊，banner 半隐而不灰死）。
+
+### Phase 5 — 文案全英化对齐 loop 模式（1 commit `feefded`）
+
+loop 现有分层：**装饰/按钮 = 英文 UPPERCASE**（Today tagline + AFFIRMATIONS + Add Affirmation）。**内容数据 = 用户输入中英文皆可**。Mood 之前半中半英，对齐：
+
+- 主按钮：`+ 看见此刻的感受` → `+ Notice Now`
+- 空态：`还没有记录。` → `Nothing here yet.`
+- 完成按钮：`看见了`（灰胶囊 chip）→ `Done`（UPPERCASE letterspacing 纯文字，跟主按钮 / 词云同 family）
+
+**保留中文**：9 桶名 / motive 副字 / 词典 — 这些是霍金斯能量层级翻译表的产品数据，不是系统文案。
+
+### Phase 6 — Tagline + 按钮动词统一 See（2 commit `e269c4a` + `0f49cf4`）
+
+用户要求 tagline 改成直译"看见你的感受"对应英文。
+- `e269c4a` Notice what's here. → **See your feelings.**（MoodView + sheet 两处）
+- `0f49cf4` 主按钮 `Notice Now` → **`See Feelings`** 动词跟 tagline 统一，同时对位 Practice 的 `Add Affirmation` verb+noun 结构。
+
+### Phase 7 — 词云改浅描边圆 chip + serif（1 commit `36ae6e9`）
+
+Phase 4 的纯文字 + 下划线密度太高、可点击感弱。改成：
+
+- 未选：透明背景 + 1px `#EDEAE3` 极浅米色 border + serif + `#6B6864` 中灰字
+- 选中：桶色 1px border + 桶色 15% alpha 背景 + 桶色字 + medium weight
+
+跟 loop SectionLabel 用同款 `#EDEAE3` 极浅米色线一致，保持极简气质但有明确点击 affordance。
+
+### Phase 8 — 去 nested scroll 单一滚动（1 commit `9ec04c7`）
+
+之前 sheet 外层 `max-h-90vh overflow-y-auto` + 词云内层 `max-h-40vh overflow-y-auto` = 2 层 nested scroll，移动端手势会歧义。
+
+- 去掉词云内层 `max-h-40vh + overflow`，词云不限高
+- sheet 单一滚动，跟 iOS bottom sheet 标准行为一致
+
+### 最终 Mood 文案矩阵（一致化收尾）
+
+| 位置 | 文案 | 字体 |
+|---|---|---|
+| Tagline（顶部 + sheet 内） | `See your feelings.` | italic serif |
+| 主按钮 | `+ SEE FEELINGS` | uppercase letterspacing |
+| 空态 | `Nothing here yet.` | italic |
+| 完成按钮 | `DONE` | uppercase letterspacing |
+| 桶名 | 万念俱灰 / 悲苦 / 恐惧 / 贪求 / 愤怒 / 自尊自傲 / 无畏 / 接纳 / 平和 | serif |
+| Motive 副字 | 想生存 / 想被认同 / 想要安全稳妥 / 想要控制 | italic 极淡灰 |
+| 词典 chip | 焦虑 / 不安 / 小心谨慎... | serif 浅描边圆 chip |
+
+### 未来拆点（write-only 留档）
+
+搬 `src/components/Mood*.tsx` + `src/lib/moods.ts` + `src/lib/moodFormat.ts` + `src/useMoodStore.ts` + `types.ts` Mood 类型块 + `firestore.rules` moods match block + Firestore 集合数据。**完全不依赖** loop 的 brand / confetti / Hall / streak / tagline。
+
+### Prod 验收
+
+Playwright 跑 https://loop-365.vercel.app/?demo=1 全程：
+- 4 tab 顺序 ✓ Mood tab 切换 ✓ 空态 ✓ 加号按钮 ✓
+- 端到端流程：点桶 → 选词 → 完成 → feed 显示 ✓
+- 编辑路径：点 entry → dialog 重弹 → chip 高亮预填正确 ✓
+- 词云单一滚动 ✓ sheet 顶部桶可见 ✓
+- **0 console error** ✓
+
+**仍需用户做**：真账号（非 demo）登 Google 加几条 mood → Firebase Console 看 `users/{uid}/moods` 真写入 + 跨设备 onSnapshot 同步 + 手机真手势 swipe 删除验证（playwright headless 不能模拟触摸手势）。
+
+---
+
+**前一轮工作**（2026-06-08 早，1 个 commit — bundle code-split）：
+
+8. **PracticeView + canvas-confetti 懒加载**（`c422523`）：两处 code-split 把首屏 gzip 砍 21.34 kB / -7.9%。
+   - `PracticeView` 改 `React.lazy()`，连带 `@dnd-kit/{core,sortable,utilities}` 三件套（约 17.5 kB gzip）从 index 主 chunk 移出，切到 Practice tab 才下载。Suspense `fallback={null}` 沿用 HistoryView 模式。
+   - `canvas-confetti` 在 `TodayView` 顶部从 `import confetti from "canvas-confetti"` 改成模块级 lazy wrapper `fireConfetti(opts)`：首次调用时 `import("canvas-confetti")` 动态加载，module-scoped promise 缓存避免后续重复 import。三处调用点（section affirmations / section habits / 整页 80 颗）全改 `fireConfetti(...)`。
+   - 改后首屏 chunk 矩阵（gzip）：index 86.38→**69.33** / vendor-firebase 131.32（不动，auth+firestore+app 最小子集）/ vendor-motion 45.20 / vendor-date-fns 7.29（TodayView import `format` 把它拉进首屏）/ vendor-lucide 1.36 / **首屏总 247.21**。lazy chunks：PracticeView 17.51 / HistoryView 11.79 / vendor-confetti 4.30。
+   - **未尝试**：firebase 三件套（auth/firestore/app）已是首屏必需，不动；vendor-motion 来自 motion/react，跨 Today/Practice/History 三页都用，不值得拆。
+   - **e2e flaky 提示**：`tests/e2e/demo-flow.spec.ts:116` "Day detail sheet has scrollable content region" 在并发跑首跑可能 race 3s timeout（HistoryView lazy chunk 加载窗口收紧），单跑稳定 2.2s。若再次出现 retry 即可，跟改造无关。
+   - **关于 confetti dev 测试**：canvas-confetti 库**全局复用同一个 canvas 元素**（不重新创建），多次 fire 用 MutationObserver 只看到 1 次 add — 这是预期行为，不是 bug。验证 fire 链路用计数器（fireCalled / fireResolved），不用 canvas count。
 
 **最新一轮工作**（2026-05-25 晚，4 个 commit — 庆祝动效 + 误报修复）：
 
