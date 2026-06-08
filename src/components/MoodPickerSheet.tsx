@@ -64,7 +64,7 @@ export default function MoodPickerSheet({
         <div className="w-9 h-1 rounded-full bg-[#D8D5CD] mx-auto mb-3" />
 
         <p className="text-xs text-[#8C8C8C] leading-relaxed font-light tracking-wide italic text-center mb-4">
-          Notice what's here.
+          See your feelings.
         </p>
 
         {/* Step 1: 列表式 9 桶 — 跟 loop 编辑/极简调性一致 */}

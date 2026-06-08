@@ -45,7 +45,7 @@ export default function MoodView({ store }: MoodViewProps) {
     <div>
       <div className="mb-10 pt-4">
         <p className="text-xs text-[#8C8C8C] leading-relaxed font-light tracking-wide italic">
-          Notice what's here.
+          See your feelings.
         </p>
       </div>
 
