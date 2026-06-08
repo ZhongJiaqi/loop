@@ -104,6 +104,18 @@ service cloud.firestore {
              request.resource.data.userId == request.auth.uid;
     }
 
+    function isValidMood() {
+      // Mood (觉察空间) — 设计 doc: docs/superpowers/specs/2026-06-08-mood-design.html
+      // userId / bucket / words / createdAt 必填；updatedAt 编辑后才有。
+      return hasRequiredFields(['userId', 'bucket', 'words', 'createdAt']) &&
+             request.resource.data.userId == request.auth.uid &&
+             request.resource.data.bucket in [
+               'bukar','bitter','fear','greed','anger','pride','brave','accept','peace'
+             ] &&
+             request.resource.data.words is list &&
+             request.resource.data.createdAt is string;
+    }
+
     // ===============================================================
     // Rules
     // ===============================================================
@@ -129,6 +141,13 @@ service cloud.firestore {
         allow read: if isOwner(userId);
         allow create: if isOwner(userId) && isValidHabitPoolItem() && uidUnchanged();
         allow update: if isOwner(userId) && isValidHabitPoolItem() && uidNotModified();
+        allow delete: if isOwner(userId);
+      }
+
+      match /moods/{moodId} {
+        allow read: if isOwner(userId);
+        allow create: if isOwner(userId) && isValidMood() && uidUnchanged();
+        allow update: if isOwner(userId) && isValidMood() && uidNotModified();
         allow delete: if isOwner(userId);
       }
 
