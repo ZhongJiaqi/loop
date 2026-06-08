@@ -72,6 +72,47 @@ test.describe('Mood tab (demo flow)', () => {
     expect(errors).toEqual([]);
   });
 
+  // 防回归：父链上的 motion.div 用 filter / transform 会创建新的 containing block，
+  // 让 fixed inset-0 的 sheet 不再 anchor viewport，导致 9 桶网格的前几行被截到 viewport 之上。
+  // 之前 fix(mood): commit a648ab3 用 createPortal 修了这个 bug。
+  // 这个 test 显式断言 9 个桶 cell 全部在 viewport 内，防止未来 motion 父层再引入 transform/filter 把它弄坏。
+  test('打开 picker 后 9 个桶全部在 viewport 内（containing block 防回归）', async ({ page }) => {
+    await page.goto(DEMO_URL);
+    await page.waitForSelector('h1');
+    await page.waitForSelector('nav button');
+    await page.locator('nav button').filter({ hasText: 'MOOD' }).click();
+    await expect(page.getByText('还没有记录')).toBeVisible({ timeout: 15000 });
+    await page.getByRole('button', { name: /\+ 此刻你怎么样？/ }).click();
+    await expect(page.getByRole('dialog')).toBeVisible();
+
+    // 1. dialog 必须 portal 到 document.body（跳出 motion.div 的 containing block）
+    const parentIsBody = await page.evaluate(() => {
+      const dialog = document.querySelector('[role="dialog"]');
+      return dialog?.parentElement === document.body;
+    });
+    expect(parentIsBody).toBe(true);
+
+    // 2. 9 个桶 cell 全部在 viewport 内（top >= 0 && bottom <= viewport.h）
+    const cellsVisibility = await page.evaluate(() => {
+      const cells = Array.from(
+        document.querySelectorAll('[role="dialog"] .grid > button'),
+      );
+      const h = window.innerHeight;
+      return cells.map((c) => {
+        const r = c.getBoundingClientRect();
+        return {
+          name: c.textContent?.trim() ?? '',
+          top: Math.round(r.top),
+          bottom: Math.round(r.bottom),
+          visible: r.top >= 0 && r.bottom <= h,
+        };
+      });
+    });
+    expect(cellsVisibility).toHaveLength(9);
+    const offscreen = cellsVisibility.filter((c) => !c.visible);
+    expect(offscreen, `cells outside viewport: ${JSON.stringify(offscreen)}`).toEqual([]);
+  });
+
   test('只记桶（不选词）也能完成', async ({ page }) => {
     const errors: string[] = [];
     page.on('console', (m) => {
