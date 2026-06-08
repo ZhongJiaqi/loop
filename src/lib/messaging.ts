@@ -5,10 +5,10 @@ import { withTimeout } from './timeout';
 const VAPID_PUBLIC_KEY = import.meta.env.VITE_FIREBASE_VAPID_KEY;
 
 // 各步骤超时，确保 UI 不会永远卡在"请求中..."。
-// iOS PWA 第一次 install SW 实测能花 30s+（受 import push-handler.js / workbox
-// precache 影响），给 60s 让冷启动场景能过关；
+// SW 等待只在"完全没有 active SW（真冷启动）"路径才走，给 15s；超过就
+// 让用户看到 reset 按钮，不再让用户等 60s。
 // FCM 订阅可能受网络环境影响给 15s；Firestore 写入给 10s。
-const SW_READY_TIMEOUT_MS = 60_000;
+const SW_READY_TIMEOUT_MS = 15_000;
 const PUSH_SUBSCRIBE_TIMEOUT_MS = 15_000;
 const FIRESTORE_WRITE_TIMEOUT_MS = 10_000;
 
@@ -31,22 +31,26 @@ function snapshotRegistration(reg: ServiceWorkerRegistration | null): string {
 }
 
 /**
- * Wait for the page's Service Worker to reach the active state.
+ * Wait for the page's Service Worker to be usable for push.
  *
- * 不再依赖裸 `navigator.serviceWorker.ready`——后者在 SW 卡在 installing/redundant
- * 时会永久 hang。改为：
+ * 关键洞察：开启提醒只需要一个 active SW（不管旧版还是新版），
+ * push subscription endpoint 跟 SW 版本无关。如果旧 SW 已经 active 在
+ * 控制页面，pushManager.subscribe 立即可用——不必傻等浏览器后台
+ * fetch 完新 SW 的 precache（workbox precache 在国内网络可能 30s+）。
  *
+ * 之前的 bug：reg.active && !reg.installing && !reg.waiting 才立即返回。
+ * 进入 PWA 时浏览器后台总会 reg.update() 拉新 SW，installing 非 null →
+ * 走 statechange 等待路径，用户被迫等 60s。
+ *
+ * 修复：
  * 1. `getRegistration()` 拿不到 → 立即报"未注册"
- * 2. 已 active 且无 installing/waiting → 立即 return
- * 3. 否则同时监听：
- *    - installing/waiting worker 的 `statechange`：state === 'activated' → 成功；
- *      state === 'redundant' → 立即失败（install 出错，再等也是空等）
- *    - `updatefound` 事件：覆盖事后才出现的新 SW
- *    - `navigator.serviceWorker.ready` 作为兜底
- *    - 60s 超时
+ * 2. **有 active SW → 立即 return**（不管 installing/waiting）
+ * 3. 同时主动推进升级（不阻塞当前请求）：
+ *    - `reg.update()` 触发 update check
+ *    - 若 `reg.waiting` 存在 → `postMessage('SKIP_WAITING')` 让旧 SW 让位
+ * 4. 仅在真冷启动（reg.active = null）时才等 statechange，15s 超时
  *
- * 超时错误消息内嵌 SW 状态 snapshot，便于在 NotificationPrompt UI 上直接读到
- * 「卡在哪个 state」。
+ * 超时错误消息内嵌 SW 状态 snapshot，便于诊断。
  */
 async function waitForServiceWorkerReady(
   timeoutMs: number = SW_READY_TIMEOUT_MS,
@@ -55,7 +59,24 @@ async function waitForServiceWorkerReady(
   if (!reg) {
     throw new Error('Service Worker 尚未注册，请刷新页面后重试');
   }
-  if (reg.active && !reg.installing && !reg.waiting) {
+
+  // 不阻塞地推进 SW 升级链路：触发 update + 推动 waiting SW 接管。
+  // 都包 try/catch，任何一步抛错都不影响主路径。
+  try {
+    reg.update().catch(() => {});
+  } catch {
+    /* update() 极少同步抛，保险 */
+  }
+  if (reg.waiting) {
+    try {
+      reg.waiting.postMessage({ type: 'SKIP_WAITING' });
+    } catch {
+      /* ignore */
+    }
+  }
+
+  // 关键修复：有 active SW 就立即可用，不再等新 SW activate。
+  if (reg.active) {
     return reg;
   }
 

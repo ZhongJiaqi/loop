@@ -4,16 +4,50 @@ import './index.css';
 
 createRoot(document.getElementById('root')!).render(<App />);
 
-// SW 的注册 / 更新 / skipWaiting 全交给 vite-plugin-pwa（autoUpdate +
-// workbox.skipWaiting / clientsClaim），不再在这里手动控制。
+// SW lifecycle 管理 —— 温和版（**不含** controllerchange→reload race）。
 //
-// 之前这里同时调 reg.update() + 给 waiting SW 发 SKIP_WAITING +
-// controllerchange 时 location.reload()。这套组合在 iOS PWA 上会触发
-// WebKit 的已知 bug（PWA-POLICE）：「SW install 期间页面 navigation /
-// reload，Safari 会立刻杀掉旧 SW」，进而 SW 卡在 redundant，
-// navigator.serviceWorker.ready 永挂——表现就是 NotificationPrompt
-// 「Service Worker 初始化超时」反复出现。
+// 用户主屏 PWA 里已装的旧 SW 是早期版本，**没有 self.skipWaiting()**：
+// 新 SW install 完成后会卡在 waiting 永不 activate（除非用户关掉所有
+// PWA tab —— iOS PWA 上几乎不会发生）。这导致升级链路 broken，新
+// push-handler.js / workbox skipWaiting 配置都生效不了。
 //
-// vite-plugin-pwa 在 workbox.skipWaiting + clientsClaim 开启后，新 SW
-// 一旦 active 就立即接管所有 client，不需要 reload；旧版本里的「自动
-// reload」反而是 race 源头。
+// 这里做两件事让升级自然完成：
+//   1. mount 时 reg.update() 触发新 SW check（iOS PWA 切前台时必备）
+//   2. updatefound + statechange='installed'+有 controller → 主动给新
+//      SW 发 SKIP_WAITING，让它跳过 waiting 直接 activate
+//
+// 不监听 controllerchange + 不 reload —— 那是触发 Safari "SW install
+// 期间 navigation 时杀 SW" bug 的源头。workbox 的 clientsClaim 会让
+// 新 SW activate 后立即接管 fetch，不需要 reload。
+if ('serviceWorker' in navigator) {
+  window.addEventListener('load', async () => {
+    try {
+      const reg = await navigator.serviceWorker.getRegistration();
+      if (!reg) return;
+
+      reg.update().catch(() => {});
+
+      // 已经有 waiting 的旧 SW？立刻让它让位。
+      if (reg.waiting) {
+        reg.waiting.postMessage({ type: 'SKIP_WAITING' });
+      }
+
+      // 监听后续 updatefound：新 SW installing → 等到 installed +
+      // 已有 controller（说明是 update 不是首次 install）→ skip waiting。
+      reg.addEventListener('updatefound', () => {
+        const installing = reg.installing;
+        if (!installing) return;
+        installing.addEventListener('statechange', () => {
+          if (
+            installing.state === 'installed' &&
+            navigator.serviceWorker.controller
+          ) {
+            installing.postMessage({ type: 'SKIP_WAITING' });
+          }
+        });
+      });
+    } catch {
+      /* SW 注册不可用就静默，不影响主程序 */
+    }
+  });
+}
