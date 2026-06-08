@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { createPortal } from 'react-dom';
 import { motion, AnimatePresence } from 'motion/react';
 import { MOOD_BUCKETS } from '../lib/moods';
 import type { MoodBucketId } from '../types';
@@ -43,9 +44,12 @@ export default function MoodPickerSheet({
   };
 
   if (!open) return null;
+  if (typeof document === 'undefined') return null; // SSR 兜底
   const activeBucket = bucket ? MOOD_BUCKETS.find((b) => b.id === bucket)! : null;
 
-  return (
+  // Portal 出去：父链 motion.div 用了 filter prop 会创建新 containing block，
+  // 让 fixed inset-0 不再 anchor 到 viewport。Portal 到 body 跳出影响。
+  return createPortal(
     <div
       className="fixed inset-0 z-50 bg-black/30"
       onClick={handleClose}
@@ -139,6 +143,7 @@ export default function MoodPickerSheet({
           )}
         </AnimatePresence>
       </div>
-    </div>
+    </div>,
+    document.body,
   );
 }
