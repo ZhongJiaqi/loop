@@ -1,6 +1,6 @@
 import { useState, useEffect, lazy, Suspense } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
-import { Calendar, List, Clock } from 'lucide-react';
+import { Calendar, List, Clock, Eye } from 'lucide-react';
 import TodayView from './components/TodayView';
 // PracticeView pulls in @dnd-kit/{core,sortable,utilities} for drag-to-reorder.
 // Users land on Today, so defer Practice's chunk (incl. dnd-kit) until they switch tabs.
@@ -8,11 +8,15 @@ const PracticeView = lazy(() => import('./components/PracticeView'));
 // HistoryView is heaviest tab (date-fns date math + calendar grid + Hall of Fame).
 // Lazy-load so Today/Practice tabs don't pay the cost up-front.
 const HistoryView = lazy(() => import('./components/HistoryView'));
+// MoodView is the standalone 觉察空间 tab. Lazy-loaded so its bundle (incl.
+// 9 桶 canonical 词典 ~450 词) doesn't ship on Today's first paint.
+const MoodView = lazy(() => import('./components/MoodView'));
 import NotificationPrompt from './components/NotificationPrompt';
 import NetworkStatusBanner from './components/NetworkStatusBanner';
 import { useNetworkStatus } from './lib/useNetworkStatus';
 import { useStore } from './useStore';
 import { useDemoStore, isDemoMode } from './useDemoStore';
+import { useMoodStore } from './useMoodStore';
 import LoginPage from './components/LoginPage';
 import { auth, db } from './firebase';
 import { requestPermissionAndSubscribe, isPushSupported } from './lib/messaging';
@@ -66,7 +70,7 @@ function readHadSession(): boolean {
 }
 
 export default function App() {
-  const [activeTab, setActiveTab] = useState<'today' | 'practice' | 'history'>('today');
+  const [activeTab, setActiveTab] = useState<'today' | 'practice' | 'mood' | 'history'>('today');
   const [user, setUser] = useState<User | null>(null);
   const [authReady, setAuthReady] = useState(false);
   // 初始值同步从 localStorage 读取，确保首次 render 就能决定要不要跳过 splash。
@@ -77,6 +81,18 @@ export default function App() {
   const realStore = useStore(user?.uid);
   const demoStore = useDemoStore();
   const store = demoMode ? demoStore : realStore;
+  // Mood 独立 store — 与 useStore 解耦，避免污染 task 创建逻辑。
+  // 两个 hook 都 call 以遵守 React Hooks 规则。
+  const realMoodStore = useMoodStore(user?.uid ?? null);
+  const moodStore = demoMode
+    ? {
+        entries: demoStore.moods,
+        loaded: true,
+        addMood: demoStore.addMood,
+        updateMood: demoStore.updateMood,
+        deleteMood: demoStore.deleteMood,
+      }
+    : realMoodStore;
   // 网络状态：demo 模式恒为"在线"（数据全在本地，不依赖 Firestore）
   const networkStatus = useNetworkStatus({
     ready: !demoMode && authReady && !!user,
@@ -261,6 +277,20 @@ export default function App() {
                 </Suspense>
               </motion.div>
             )}
+            {activeTab === 'mood' && (
+              <motion.div
+                key="mood"
+                initial={{ opacity: 0, y: 10, filter: 'blur(4px)' }}
+                animate={{ opacity: 1, y: 0, filter: 'blur(0px)' }}
+                exit={{ opacity: 0, y: -10, filter: 'blur(4px)' }}
+                transition={{ duration: 0.4, ease: [0.23, 1, 0.32, 1] }}
+                className="h-full"
+              >
+                <Suspense fallback={null}>
+                  <MoodView store={moodStore} />
+                </Suspense>
+              </motion.div>
+            )}
             {activeTab === 'history' && (
               <motion.div
                 key="history"
@@ -294,6 +324,13 @@ export default function App() {
           >
             <List className="w-5 h-5 stroke-[1.5]" />
             <span className={`text-[9px] mt-1.5 tracking-widest transition-all duration-500 ${activeTab === 'practice' ? 'opacity-100 font-medium' : 'opacity-0 h-0 overflow-hidden'}`}>PRACTICE</span>
+          </button>
+          <button
+            onClick={() => setActiveTab('mood')}
+            className={`flex flex-col items-center p-2 transition-all duration-500 ${activeTab === 'mood' ? 'text-[#1A1A1A]' : 'text-[#A09E9A] hover:text-[#5C5A56]'}`}
+          >
+            <Eye className="w-5 h-5 stroke-[1.5]" />
+            <span className={`text-[9px] mt-1.5 tracking-widest transition-all duration-500 ${activeTab === 'mood' ? 'opacity-100 font-medium' : 'opacity-0 h-0 overflow-hidden'}`}>MOOD</span>
           </button>
           <button
             onClick={() => setActiveTab('history')}
