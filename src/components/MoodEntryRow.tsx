@@ -30,10 +30,10 @@ export default function MoodEntryRow({ entry, onEdit, onDelete }: MoodEntryRowPr
           className="w-2 h-2 rounded-full shrink-0"
           style={{ background: b.color }}
         />
-        <span className="text-xs text-[#2C2C2C] font-medium min-w-[52px] shrink-0">
+        <span className="text-xs font-serif font-medium text-[#2C2C2C] min-w-[52px] shrink-0">
           {b.zhName}
         </span>
-        <span className="text-[11px] text-[#8C8C8C] truncate">
+        <span className="text-[11px] font-serif text-[#8C8C8C] truncate">
           {entry.words.join(' · ')}
         </span>
       </button>

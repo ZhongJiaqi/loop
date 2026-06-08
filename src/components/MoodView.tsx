@@ -81,14 +81,14 @@ export default function MoodView({ store }: MoodViewProps) {
       </motion.button>
 
       {groups.length === 0 ? (
-        <p className="text-xs text-[#A09E9A] mt-12 italic">
+        <p className="text-sm font-serif italic text-[#B0ADA5] mt-12">
           Nothing here yet.
         </p>
       ) : (
         groups.map((g) => (
           <section key={g.date} className="mb-4">
             <header className="flex items-baseline justify-between border-b border-[#EDEAE3] pb-1 mb-2">
-              <h3 className="text-[13px] font-semibold text-[#2C2C2C]">
+              <h3 className="text-[13px] font-serif font-semibold text-[#2C2C2C]">
                 {formatDayLabel(g.date, today)}
               </h3>
               <span className="text-[10px] text-[#B0AEA9]">{g.entries.length} 次</span>

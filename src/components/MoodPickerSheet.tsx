@@ -94,13 +94,12 @@ export default function MoodPickerSheet({
                   style={{ background: b.color }}
                 />
                 <span
-                  className={`flex-1 text-base text-[#2C2C2C] ${isActive ? 'font-medium' : ''}`}
-                  style={{ fontFamily: 'ui-serif, Georgia, "Songti SC", "宋体", serif' }}
+                  className={`flex-1 text-base font-serif text-[#2C2C2C] ${isActive ? 'font-medium' : ''}`}
                 >
                   {b.zhName}
                 </span>
                 {b.motive !== '—' && (
-                  <span className="text-[10px] text-[#A09E9A] italic">{b.motive}</span>
+                  <span className="text-[10px] font-serif italic text-[#A09E9A]">{b.motive}</span>
                 )}
               </button>
             );
@@ -119,7 +118,7 @@ export default function MoodPickerSheet({
               className="overflow-hidden"
             >
               <div className="flex items-center justify-between mt-2 mb-2">
-                <div className="flex items-center gap-2 text-sm font-semibold text-[#2C2C2C]">
+                <div className="flex items-center gap-2 text-sm font-serif font-semibold text-[#2C2C2C]">
                   <span
                     className="w-2.5 h-2.5 rounded-full"
                     style={{ background: activeBucket.color }}
@@ -150,10 +149,8 @@ export default function MoodPickerSheet({
                     <button
                       key={w}
                       onClick={() => toggleWord(w)}
-                      className="text-xs px-2.5 py-1 rounded-full border transition-colors"
+                      className="text-xs font-serif px-2.5 py-1 rounded-full border transition-colors"
                       style={{
-                        fontFamily:
-                          'ui-serif, Georgia, "Songti SC", "宋体", serif',
                         color: on ? activeBucket.color : '#6B6864',
                         borderColor: on ? activeBucket.color : '#EDEAE3',
                         backgroundColor: on ? `${activeBucket.color}26` : 'transparent', // 26 = 15% alpha
