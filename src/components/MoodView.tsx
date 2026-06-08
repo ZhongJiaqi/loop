@@ -68,7 +68,17 @@ export default function MoodView({ store }: MoodViewProps) {
             </header>
             {g.entries.map((e) => (
               <div key={e.id}>
-                <MoodEntryRow entry={e} onEdit={handleEdit} />
+                <MoodEntryRow
+                  entry={e}
+                  onEdit={handleEdit}
+                  onDelete={
+                    store.deleteMood
+                      ? (entry) => {
+                          void store.deleteMood!(entry.id);
+                        }
+                      : undefined
+                  }
+                />
               </div>
             ))}
           </section>
