@@ -55,7 +55,7 @@ export default function MoodPickerSheet({
       onClick={handleClose}
       role="dialog"
       aria-modal="true"
-      aria-label="选择此刻的情绪"
+      aria-label="看见此刻的感受"
     >
       <div
         className="absolute inset-x-0 bottom-0 bg-[#F9F8F6] rounded-t-3xl p-4 pb-6 max-w-md mx-auto max-h-[90vh] overflow-y-auto"
@@ -66,7 +66,7 @@ export default function MoodPickerSheet({
         <div className="text-[11px] uppercase tracking-[0.2em] text-[#8C8C8C] text-center mb-1">
           MOOD
         </div>
-        <div className="text-sm text-[#2C2C2C] text-center mb-4">此刻你怎么样？</div>
+        <div className="text-sm text-[#2C2C2C] text-center mb-4">看见此刻的感受</div>
 
         {/* Step 1: 3×3 网格 */}
         <div className="grid grid-cols-3 gap-2 mb-3">
@@ -80,7 +80,7 @@ export default function MoodPickerSheet({
                   isActive ? 'border-[#2C2C2C] bg-white' : 'border-[#EDEAE3] bg-white opacity-90'
                 }`}
                 aria-pressed={isActive}
-                aria-label={`选择 ${b.zhName}`}
+                aria-label={`看见 ${b.zhName}`}
               >
                 <span
                   className="w-2.5 h-2.5 rounded-full"
@@ -117,7 +117,7 @@ export default function MoodPickerSheet({
                   onClick={handleDone}
                   className="text-xs font-medium text-[#2C2C2C] bg-[#F0EEE8] px-3 py-1.5 rounded-full"
                 >
-                  完成
+                  看见了
                 </button>
               </div>
 

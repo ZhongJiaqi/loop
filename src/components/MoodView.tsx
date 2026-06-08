@@ -42,7 +42,7 @@ export default function MoodView({ store }: MoodViewProps) {
   return (
     <div className="pt-2">
       <p className="text-[11px] tracking-[0.18em] uppercase text-[#B0AEA9] text-center mb-4">
-        这些天你的样子
+        这些天你的感受
       </p>
 
       <button
@@ -50,12 +50,12 @@ export default function MoodView({ store }: MoodViewProps) {
         onClick={() => setPickerOpen(true)}
         className="w-full py-2.5 mb-5 border border-dashed border-[#C9C6BE] rounded-xl text-sm text-[#6B6864] bg-white"
       >
-        + 此刻你怎么样？
+        + 看见此刻的感受
       </button>
 
       {groups.length === 0 ? (
         <p className="text-center text-xs text-[#B0AEA9] mt-12">
-          还没有记录。点上面那行命名一下你现在的状态。
+          还没有记录。点上面那行看见你的感受。
         </p>
       ) : (
         groups.map((g) => (

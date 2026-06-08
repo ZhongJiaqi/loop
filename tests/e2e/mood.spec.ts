@@ -41,12 +41,12 @@ test.describe('Mood tab (demo flow)', () => {
     await expect(page.getByText('还没有记录')).toBeVisible({ timeout: 15000 });
 
     // 打开 picker
-    await page.getByRole('button', { name: /\+ 此刻你怎么样？/ }).click();
+    await page.getByRole('button', { name: /\+ 看见此刻的感受/ }).click();
     await expect(page.getByRole('dialog')).toBeVisible();
 
     // 选 "恐惧" 桶 — 用 evaluate 触发原生 click（sheet 在 mobile viewport 可能超出）
     await page
-      .getByRole('button', { name: '选择 恐惧' })
+      .getByRole('button', { name: '看见 恐惧' })
       .evaluate((btn) => (btn as HTMLButtonElement).click());
 
     // 选两个词（scope 到 dialog 内避免和 nav 标签等元素冲突）
@@ -59,7 +59,7 @@ test.describe('Mood tab (demo flow)', () => {
       .evaluate((btn) => (btn as HTMLButtonElement).click());
 
     // 完成 — sheet 在 mobile viewport 下可能超出 viewport，用 evaluate 触发原生 click
-    await dialog.getByRole('button', { name: '完成' }).evaluate((btn) =>
+    await dialog.getByRole('button', { name: '看见了' }).evaluate((btn) =>
       (btn as HTMLButtonElement).click(),
     );
 
@@ -82,7 +82,7 @@ test.describe('Mood tab (demo flow)', () => {
     await page.waitForSelector('nav button');
     await page.locator('nav button').filter({ hasText: 'MOOD' }).click();
     await expect(page.getByText('还没有记录')).toBeVisible({ timeout: 15000 });
-    await page.getByRole('button', { name: /\+ 此刻你怎么样？/ }).click();
+    await page.getByRole('button', { name: /\+ 看见此刻的感受/ }).click();
     await expect(page.getByRole('dialog')).toBeVisible();
 
     // 1. dialog 必须 portal 到 document.body（跳出 motion.div 的 containing block）
@@ -125,14 +125,14 @@ test.describe('Mood tab (demo flow)', () => {
     await page.waitForSelector('nav button');
     await page.locator('nav button').filter({ hasText: 'MOOD' }).click();
     await expect(page.getByText('还没有记录')).toBeVisible({ timeout: 15000 });
-    await page.getByRole('button', { name: /\+ 此刻你怎么样？/ }).click();
+    await page.getByRole('button', { name: /\+ 看见此刻的感受/ }).click();
     await expect(page.getByRole('dialog')).toBeVisible();
     await page
-      .getByRole('button', { name: '选择 平和' })
+      .getByRole('button', { name: '看见 平和' })
       .evaluate((btn) => (btn as HTMLButtonElement).click());
 
     const dialog = page.getByRole('dialog');
-    await dialog.getByRole('button', { name: '完成' }).evaluate((btn) =>
+    await dialog.getByRole('button', { name: '看见了' }).evaluate((btn) =>
       (btn as HTMLButtonElement).click(),
     );
 
