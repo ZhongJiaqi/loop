@@ -57,7 +57,7 @@ export default function MoodView({ store }: MoodViewProps) {
         className="mb-8 flex items-center gap-2 text-[11px] uppercase tracking-[0.2em] text-[#A09E9A] hover:text-[#2C2C2C] transition-colors"
       >
         <Plus className="w-3 h-3 stroke-[2]" />
-        <span>Notice Now</span>
+        <span>See Feelings</span>
       </motion.button>
 
       {groups.length === 0 ? (
