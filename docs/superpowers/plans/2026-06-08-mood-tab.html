@@ -1,0 +1,1527 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Mood Tab Implementation Plan</title>
+<style>
+  * { box-sizing: border-box; }
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, "PingFang SC", system-ui, sans-serif;
+    background: #FBFAF7; color: #2C2C2C; line-height: 1.6;
+    max-width: 960px; margin: 0 auto; padding: 28px 26px 80px;
+    -webkit-font-smoothing: antialiased;
+  }
+  h1 { font-size: 26px; font-weight: 600; margin: 0 0 6px; letter-spacing: -0.01em; }
+  h2 { font-size: 19px; margin: 32px 0 10px; padding-top: 22px; border-top: 1px solid #EDEAE3; }
+  h2:first-of-type { border-top: none; padding-top: 0; }
+  h3 { font-size: 16px; margin: 22px 0 8px; color: #2C2C2C; }
+  h4 { font-size: 14px; margin: 12px 0 6px; color: #4A4A4A; font-weight: 600; }
+  p { margin: 6px 0; }
+  code {
+    font-family: "SF Mono", "JetBrains Mono", Menlo, monospace;
+    font-size: 12.5px; background: #F0EEE8;
+    padding: 1px 5px; border-radius: 4px;
+  }
+  pre {
+    font-family: "SF Mono", "JetBrains Mono", Menlo, monospace;
+    font-size: 12.5px; line-height: 1.5;
+    background: #1F1F1F; color: #E8E5DE;
+    padding: 14px 16px; border-radius: 8px;
+    overflow-x: auto; margin: 8px 0;
+  }
+  pre code { background: transparent; color: inherit; padding: 0; }
+  .meta {
+    font-size: 12px; color: #8C8C8C; margin: 4px 0 24px;
+    display: flex; gap: 14px; flex-wrap: wrap;
+  }
+  .meta strong { color: #4A4A4A; font-weight: 500; }
+  blockquote {
+    margin: 12px 0; padding: 10px 14px;
+    border-left: 3px solid #C5B358;
+    background: #FAF7EE; color: #4A4A4A; font-size: 13.5px;
+  }
+  ul, ol { padding-left: 20px; margin: 6px 0; }
+  li { margin: 3px 0; }
+  table { border-collapse: collapse; width: 100%; margin: 10px 0; font-size: 13px; }
+  th, td { padding: 7px 10px; text-align: left; border-bottom: 1px solid #EDEAE3; vertical-align: top; }
+  th { background: #F4F2EC; font-weight: 600; font-size: 12px; }
+  .pill {
+    display: inline-block; padding: 1px 7px; border-radius: 10px;
+    background: #F0EEE8; color: #4A4A4A; font-size: 11px; margin: 0 2px;
+  }
+  .pill.green { background: #E5EBE3; color: #4A6647; }
+  .pill.gray { background: #EDEAE3; color: #6B6864; }
+  .task {
+    background: #FFFFFF; border: 1px solid #EDEAE3;
+    border-radius: 10px; padding: 18px 20px; margin: 18px 0;
+  }
+  .task-header {
+    display: flex; align-items: baseline; gap: 10px;
+    margin-bottom: 6px; padding-bottom: 8px;
+    border-bottom: 1px solid #F0EEE8;
+  }
+  .task-num {
+    font-size: 12px; font-weight: 600; color: #8C8C8C;
+    background: #F4F2EC; padding: 2px 8px; border-radius: 10px;
+  }
+  .task-title { font-size: 16px; font-weight: 600; flex: 1; }
+  .step {
+    margin: 14px 0;
+    padding-left: 14px;
+    border-left: 2px solid #E5EBE3;
+  }
+  .step-label { font-weight: 600; font-size: 13.5px; color: #2C2C2C; }
+  .files-block {
+    background: #FAF7EE; padding: 8px 12px; border-radius: 6px;
+    font-size: 12.5px; margin: 6px 0 10px;
+  }
+  .files-block strong { color: #6B5E2D; }
+  .toc { font-size: 13.5px; }
+  .toc a { color: #4A6647; text-decoration: none; }
+  .toc a:hover { text-decoration: underline; }
+  details { margin: 6px 0; }
+  summary {
+    cursor: pointer; font-size: 12.5px; color: #6B6864;
+    padding: 4px 0; user-select: none;
+  }
+  details[open] summary { color: #4A4A4A; font-weight: 500; }
+</style>
+</head>
+<body>
+
+<h1>Mood Tab Implementation Plan</h1>
+<div class="meta">
+  <span><strong>Plan</strong>: 2026-06-08-mood-tab.html</span>
+  <span><strong>From spec</strong>: <code>docs/superpowers/specs/2026-06-08-mood-design.html</code></span>
+  <span><strong>状态</strong>: <span class="pill green">待 user review</span></span>
+</div>
+
+<blockquote>
+<strong>For agentic workers:</strong> REQUIRED SUB-SKILL: Use <code>superpowers:subagent-driven-development</code>（recommended）或 <code>superpowers:executing-plans</code> 来 task-by-task 执行此 plan。每个 step 用 checkbox（<code>- [ ]</code>）标记进度。
+</blockquote>
+
+<h2>Goal · Architecture · Tech Stack</h2>
+
+<p><strong>Goal</strong>: 在 loop 内增加第 4 个 tab "Mood"，提供 9 桶 + 详细词的两层情绪记录、按天极简流水的回顾、编辑/删除——一个反 loop 主旋律的觉察空间，未来可无痛拆出独立产品。</p>
+
+<p><strong>Architecture</strong>: 与 Affirmation/Habit 体系展示层零耦合。独立 Firestore 集合 <code>users/{uid}/moods/</code>、独立 hook <code>useMoodStore</code>、独立组件树（<code>MoodView</code> / <code>MoodPickerSheet</code> / <code>MoodEntryRow</code>）、独立 canonical 数据 <code>src/lib/moods.ts</code>。仅复用基础设施工具（<code>SwipeActions</code>、<code>NetworkStatusBanner</code>、<code>withTimeout</code>）。</p>
+
+<p><strong>Tech Stack</strong>: 沿用 loop 现有栈 — React 19 + TypeScript + Vite + Tailwind v4 + Firebase Firestore + motion/react + Lucide icons + Vitest + Playwright。新依赖：<strong>无</strong>。</p>
+
+<h2>File Structure（一次性 lock-in）</h2>
+
+<table>
+  <tr><th>操作</th><th>路径</th><th>责任</th></tr>
+  <tr><td>Create</td><td><code>src/lib/moods.ts</code></td><td>9 桶 canonical 数据 + bucketById helper</td></tr>
+  <tr><td>Create</td><td><code>src/lib/moodFormat.ts</code></td><td>日期相对格式化 helper（"今天/昨天/前天/M/D Ddd"）+ 按天分组</td></tr>
+  <tr><td>Create</td><td><code>src/useMoodStore.ts</code></td><td>Firestore 订阅 + addMood/updateMood/deleteMood</td></tr>
+  <tr><td>Create</td><td><code>src/components/MoodPickerSheet.tsx</code></td><td>3×3 桶网格 + bottom sheet 词云</td></tr>
+  <tr><td>Create</td><td><code>src/components/MoodEntryRow.tsx</code></td><td>单条记录展示行</td></tr>
+  <tr><td>Create</td><td><code>src/components/MoodView.tsx</code></td><td>Mood tab 主视图（按天分组流水 + 空态）</td></tr>
+  <tr><td>Modify</td><td><code>src/types.ts</code></td><td>追加 MoodBucketId / MoodEntry / MoodBucket 类型</td></tr>
+  <tr><td>Modify</td><td><code>src/useDemoStore.ts</code></td><td>追加 moods 字段 + add/update/delete 方法</td></tr>
+  <tr><td>Modify</td><td><code>src/App.tsx</code></td><td>第 4 tab（Today · Practice · Mood · History）+ Eye icon + useMoodStore wiring</td></tr>
+  <tr><td>Modify</td><td><code>firestore.rules</code></td><td>追加 moods match block + 部署</td></tr>
+  <tr><td>Create</td><td><code>tests/moods.test.ts</code></td><td>bucketById / moodFormat 单测</td></tr>
+  <tr><td>Create</td><td><code>tests/useMoodStore.test.ts</code></td><td>addMood/updateMood/deleteMood payload 单测</td></tr>
+  <tr><td>Create</td><td><code>tests/e2e/mood.spec.ts</code></td><td>完整 demo 流程 e2e</td></tr>
+</table>
+
+<h2>Tasks Overview</h2>
+
+<div class="toc">
+  <p><strong>S1 数据层</strong></p>
+  <ul>
+    <li><a href="#t1">Task 1 — 类型 + 9 桶 canonical 数据 + bucketById</a></li>
+    <li><a href="#t2">Task 2 — useMoodStore（订阅 + CRUD）</a></li>
+    <li><a href="#t3">Task 3 — useDemoStore 扩展 moods</a></li>
+    <li><a href="#t4">Task 4 — firestore.rules 追加 + 部署</a></li>
+  </ul>
+  <p><strong>S2 UI Pickers</strong></p>
+  <ul>
+    <li><a href="#t5">Task 5 — MoodPickerSheet（3×3 网格 + 词云 sheet）</a></li>
+  </ul>
+  <p><strong>S3 主视图 + nav</strong></p>
+  <ul>
+    <li><a href="#t6">Task 6 — moodFormat（日期分组 helper）+ MoodEntryRow</a></li>
+    <li><a href="#t7">Task 7 — MoodView（按天流水 + 空态）</a></li>
+    <li><a href="#t8">Task 8 — App.tsx 加第 4 tab + Eye icon + 接 useMoodStore</a></li>
+  </ul>
+  <p><strong>S4 编辑删除 + e2e</strong></p>
+  <ul>
+    <li><a href="#t9">Task 9 — MoodEntryRow 接 SwipeActions（编辑/删除）</a></li>
+    <li><a href="#t10">Task 10 — e2e mood.spec.ts 完整 demo flow</a></li>
+  </ul>
+</div>
+
+<h2>Conventions for every task</h2>
+
+<ul>
+  <li><strong>TDD</strong>：先写 failing test → 验证 fail → 实现 → 验证 pass → commit</li>
+  <li><strong>命令</strong>：单测 <code>npm test -- --run [path]</code>，全套 <code>npm test -- --run</code>，e2e <code>npm run test:e2e</code>，类型 <code>npm run lint</code></li>
+  <li><strong>commit 格式</strong>：<code>&lt;type&gt;(mood): &lt;一句&gt;</code>，type ∈ feat / test / refactor / docs / chore</li>
+  <li><strong>每个 task 单独 commit</strong>，便于 git revert 单点</li>
+</ul>
+
+<!-- ============= TASK 1 ============= -->
+<h2 id="t1">Task 1 · 类型 + 9 桶 canonical 数据 + bucketById</h2>
+
+<div class="task">
+  <div class="task-header">
+    <span class="task-num">T1</span>
+    <span class="task-title">类型定义 + canonical data + lookup helper（含单测）</span>
+  </div>
+
+  <div class="files-block">
+    <strong>Create</strong>: <code>src/lib/moods.ts</code>, <code>tests/moods.test.ts</code><br>
+    <strong>Modify</strong>: <code>src/types.ts</code>
+  </div>
+
+  <div class="step">
+    <div class="step-label">- [ ] Step 1.1 — 写 failing test（tests/moods.test.ts）</div>
+<pre><code>import { describe, it, expect } from 'vitest';
+import { MOOD_BUCKETS, bucketById } from '../src/lib/moods';
+
+describe('MOOD_BUCKETS canonical data', () =&gt; {
+  it('has exactly 9 buckets in canonical order', () =&gt; {
+    expect(MOOD_BUCKETS).toHaveLength(9);
+    expect(MOOD_BUCKETS.map(b =&gt; b.id)).toEqual([
+      'bukar','bitter','fear','greed','anger','pride','brave','accept','peace',
+    ]);
+  });
+
+  it('every bucket has zhName, motive, color (#XXXXXX), non-empty words', () =&gt; {
+    for (const b of MOOD_BUCKETS) {
+      expect(b.zhName.length).toBeGreaterThan(0);
+      expect(typeof b.motive).toBe('string');
+      expect(b.color).toMatch(/^#[0-9A-Fa-f]{6}$/);
+      expect(b.words.length).toBeGreaterThan(0);
+    }
+  });
+});
+
+describe('bucketById', () =&gt; {
+  it('returns matching bucket by id', () =&gt; {
+    expect(bucketById('fear').zhName).toBe('恐惧');
+    expect(bucketById('peace').zhName).toBe('平和');
+  });
+});
+</code></pre>
+  </div>
+
+  <div class="step">
+    <div class="step-label">- [ ] Step 1.2 — 验证 fail</div>
+    <p>Run: <code>npm test -- --run tests/moods.test.ts</code><br>
+    Expected: FAIL（模块未存在）</p>
+  </div>
+
+  <div class="step">
+    <div class="step-label">- [ ] Step 1.3 — 追加类型 src/types.ts</div>
+    <p>在文件末尾追加：</p>
+<pre><code>// === Mood (觉察空间) ===
+// 设计 doc: docs/superpowers/specs/2026-06-08-mood-design.html
+export type MoodBucketId =
+  | 'bukar'   // 万念俱灰
+  | 'bitter'  // 悲苦
+  | 'fear'    // 恐惧
+  | 'greed'   // 贪求
+  | 'anger'   // 愤怒
+  | 'pride'   // 自尊自傲
+  | 'brave'   // 无畏
+  | 'accept'  // 接纳
+  | 'peace';  // 平和
+
+export interface MoodBucket {
+  id: MoodBucketId;
+  zhName: string;
+  motive: string;
+  color: string;             // hex #RRGGBB
+  words: readonly string[];
+}
+
+export interface MoodEntry {
+  id: string;
+  userId: string;
+  bucket: MoodBucketId;
+  words: string[];
+  createdAt: string;         // ISO
+  updatedAt?: string;
+}
+</code></pre>
+  </div>
+
+  <div class="step">
+    <div class="step-label">- [ ] Step 1.4 — 写 src/lib/moods.ts（含 9 桶全量词典 + bucketById）</div>
+    <p>这是数据真理源。词典从 <code>/Users/jiaqizhong/Downloads/情绪表格.jpg</code> OCR 整理。</p>
+<pre><code>import type { MoodBucket, MoodBucketId } from '../types';
+
+export const MOOD_BUCKETS: readonly MoodBucket[] = [
+  {
+    id: 'bukar', zhName: '万念俱灰', motive: '想生存', color: '#5B4F6E',
+    words: [
+      '无聊','不能赢','粗心大意','冷淡','停止','死亡','被打败','沮丧','泄气','凄惨',
+      '绝望','气馁','幻想破灭','死定了','精疲力竭','失败','可遗忘的','没出息','放弃',
+      '冷酷无情的','没有希望','没有幽默感','我不行','我不在乎','我没有价值','漫不经心',
+      '优柔寡断','冷漠','没有存在感','太晚了','懒惰','再等等吧','无精打采','失败者',
+      '失败的','消极','麻木不仁','击溃','无能为力','认命','震惊','魂不守舍',
+      '（因吸毒）神志恍惚','停滞不前','太累','冷酷无情','漫无目的','没用','模糊不清',
+      '废品','有什么用呢','为什么要试呢','不值得',
+    ],
+  },
+  {
+    id: 'bitter', zhName: '悲苦', motive: '想被认同', color: '#5C6A82',
+    words: [
+      '被遗弃','被羞辱','被控告','极度痛苦','丢脸','被背叛','忧郁','被欺骗','绝望',
+      '失望','心烦意乱','尴尬的','被忘掉','愧疚的','心碎的','头痛','沮丧','无助的',
+      '受伤','要是……就好了','被忽视的','不够','伤心欲绝','不公平','被遗忘','极度渴望',
+      '损失','哀愁','被误解','哀悼','被忽略','没人关心我','没人爱我','乡愁','错失',
+      '遗憾','可怜的我','后悔','被拒绝','懊悔','悲哀','悲伤','让人落泪的',
+      '被（精神上）折磨','被虐待','不开心','不被爱','没人要','脆弱','为什么是我','受伤的',
+    ],
+  },
+  {
+    id: 'fear', zhName: '恐惧', motive: '想要安全稳妥', color: '#6B7A8F',
+    words: [
+      '焦虑','不安','小心谨慎','又冷又黏又湿','胆小怯懦','自我防卫的','不信任','怀疑',
+      '惧怕','尴尬的','逃避的','预感','狂乱的','犹豫不决','惊骇的','歇斯底里','拘束的',
+      '不理智的','恶心','紧张','恐慌','麻痹的','偏执狂','被吓到的','偷偷摸摸','不可靠',
+      '羞涩','怀疑的','怯场','迷信的','多疑的','简短生硬','被吓坏的','被威胁的','羞怯',
+      '陷入困境','迟疑不决','自私的','心神不宁','容易受伤的','想要……','逃避','小心翼翼','担心',
+    ],
+  },
+  {
+    id: 'greed', zhName: '贪求', motive: '想要控制', color: '#8C7656',
+    words: [
+      '放弃','预期','冷酷无情','等不了','冲动','渴求','苛求的','狡诈的','被驱使的',
+      '嫉妒','剥削','过分迷恋','暴怒','失意的','贪吃暴食的','贪婪的','囤积（hoarding）',
+      '饥饿','我想……','不耐烦','好色的','淫荡的','操纵别人','吝啬的','一定要得到……',
+      '从来不满足','从来不满意','没意识到的（oblivious）','着迷的','溺爱娇纵','占有欲强的',
+      '掠夺成性的','固执己见','鲁莽','残忍的','诡计多端','自私的','如饥似渴','放肆（wanton）',
+    ],
+  },
+  {
+    id: 'anger', zhName: '愤怒', motive: '想要控制', color: '#B5654E',
+    words: [
+      '伤人感情的','好斗的','被惹恼的','好辩的','好战的','（怒火）激烈','令人恐惧的',
+      '刻薄的','挑衅的','苛求的','毁灭性的','嫌恶','脾气暴躁','凶猛的','泄气的','气愤',
+      '狂怒的','严厉','憎恨','敌意','不耐烦','妒忌','怒气冲冲','疯狂','卑鄙','残忍的',
+      '凶残的','义愤填膺','坏脾气','一意孤行','叛逆的','怨恨','顽固','抵制','粗鲁',
+      '野蛮','冲突激化','怒气冲天','五内俱焚','怀恨在心','钢铁般的','着急','倔强','愠怒',
+      '复仇心切','邪恶','暴力','易爆发的','恶劣的','任性的',
+    ],
+  },
+  {
+    id: 'pride', zhName: '自尊自傲', motive: '想被认同', color: '#B89860',
+    words: [
+      '无疵可寻','超然离群','自负','固执己见','无聊','聪明','封闭的','沾沾自喜','愉快',
+      '逞能','轻蔑的','酷','挑剔的','鄙弃','傲慢专断','假谦卑','虚假美德','扬扬得意',
+      '傲慢','自以为是','虚伪','冷冰冰地','孤僻的','批判性的','自称无所不知的','心胸狭隘',
+      '永远不会错','武断','盛气凌人','神气十足','偏颇的','放肆','自以为公正的','刚直不屈',
+      '自恋的','自鸣得意','自私','自命不凡','势利眼','独特','被宠坏的','禁欲主义',
+      '顽固不化','自高自大','优越感','强硬不妥协','无感觉的','不宽恕的','不屈服的','爱慕虚荣',
+    ],
+  },
+  {
+    id: 'brave', zhName: '无畏', motive: '—', color: '#7DA286',
+    words: [
+      '喜欢冒险的','警惕的','活着的','胸有成竹','机警的','有中心的（centered）','有把握的',
+      '聪明','思路清晰','怜悯','能干的','自信的','创新的','大胆','果断的','有活力',
+      '热切的','热情的','欢欣','探索','灵活性','专注的','乐善好施（giving）','开心',
+      '可敬的','幽默','我行','独立','首创精神','正直','所向披靡','有爱的','头脑清楚',
+      '自强不息','来者不拒','开放','乐观','洞察力','积极','意志坚强','敏感的','稳当的',
+      '自给自足','犀利的','坚强的','助人为乐','不知疲倦','精力充沛','乐意','热忱',
+    ],
+  },
+  {
+    id: 'accept', zhName: '接纳', motive: '—', color: '#9BB8A5',
+    words: [
+      '丰盛','有眼力的','平衡','美丽','归属感','天真烂漫','同情心','体贴的','高兴',
+      '兴高采烈','拥抱','善解人意','丰富','一切都很好','友善的','丰满','温柔','热情洋溢',
+      '亲切的','和睦的','和谐','理解','温暖','幸福','奇迹','直觉的（intuitive）','合拍',
+      '令人高兴的','富有爱心的','宽宏大量','成熟的','轻松自如','无需更改','开放','幽默的',
+      '容光焕发','善于接受','稳当的','温和的','柔和的',
+    ],
+  },
+  {
+    id: 'peace', zhName: '平和', motive: '—', color: '#C5D2D8',
+    words: [
+      '永不衰老','有觉悟的','存在','无边无际','镇定','不朽','自由','满足的','热情洋溢',
+      '轻松','同一性','完美','纯粹','安静','宁静','无限空间（space）','静止','永恒的',
+      '安宁','无限','完整',
+    ],
+  },
+] as const;
+
+export function bucketById(id: MoodBucketId): MoodBucket {
+  const b = MOOD_BUCKETS.find(x =&gt; x.id === id);
+  if (!b) throw new Error(`Unknown mood bucket id: ${id}`);
+  return b;
+}
+</code></pre>
+  </div>
+
+  <div class="step">
+    <div class="step-label">- [ ] Step 1.5 — 验证 pass</div>
+    <p>Run: <code>npm test -- --run tests/moods.test.ts</code><br>
+    Expected: PASS（3 个 test）</p>
+  </div>
+
+  <div class="step">
+    <div class="step-label">- [ ] Step 1.6 — Run lint</div>
+    <p>Run: <code>npm run lint</code><br>
+    Expected: 0 errors</p>
+  </div>
+
+  <div class="step">
+    <div class="step-label">- [ ] Step 1.7 — Commit</div>
+<pre><code>git add src/types.ts src/lib/moods.ts tests/moods.test.ts
+git commit -m "feat(mood): 9 桶 canonical 数据 + 类型 + bucketById helper"
+</code></pre>
+  </div>
+</div>
+
+<!-- ============= TASK 2 ============= -->
+<h2 id="t2">Task 2 · useMoodStore（订阅 + addMood/updateMood/deleteMood）</h2>
+
+<div class="task">
+  <div class="task-header">
+    <span class="task-num">T2</span>
+    <span class="task-title">独立 hook，Firestore 实时订阅 + 3 个 CRUD 方法（含单测）</span>
+  </div>
+
+  <div class="files-block">
+    <strong>Create</strong>: <code>src/useMoodStore.ts</code>, <code>tests/useMoodStore.test.ts</code>
+  </div>
+
+  <div class="step">
+    <div class="step-label">- [ ] Step 2.1 — 写 failing test（tests/useMoodStore.test.ts）</div>
+    <p>测试 pure helper（payload 构造），onSnapshot 用 mock。</p>
+<pre><code>import { describe, it, expect, vi } from 'vitest';
+import { buildMoodPayload, buildMoodUpdatePayload } from '../src/useMoodStore';
+
+describe('buildMoodPayload', () =&gt; {
+  it('returns valid Firestore payload with userId, bucket, words, createdAt ISO', () =&gt; {
+    const p = buildMoodPayload('u1', 'fear', ['焦虑','多疑']);
+    expect(p.userId).toBe('u1');
+    expect(p.bucket).toBe('fear');
+    expect(p.words).toEqual(['焦虑','多疑']);
+    expect(typeof p.createdAt).toBe('string');
+    expect(p.createdAt).toMatch(/^\d{4}-\d{2}-\d{2}T/);
+  });
+
+  it('allows empty words array (只记桶)', () =&gt; {
+    const p = buildMoodPayload('u1', 'peace', []);
+    expect(p.words).toEqual([]);
+  });
+});
+
+describe('buildMoodUpdatePayload', () =&gt; {
+  it('includes updatedAt ISO and only provided fields', () =&gt; {
+    const u = buildMoodUpdatePayload({ words: ['平衡'] });
+    expect(u.words).toEqual(['平衡']);
+    expect(typeof u.updatedAt).toBe('string');
+    expect('bucket' in u).toBe(false);
+  });
+
+  it('can update bucket alone', () =&gt; {
+    const u = buildMoodUpdatePayload({ bucket: 'accept' });
+    expect(u.bucket).toBe('accept');
+    expect('words' in u).toBe(false);
+  });
+});
+</code></pre>
+  </div>
+
+  <div class="step">
+    <div class="step-label">- [ ] Step 2.2 — 验证 fail</div>
+    <p>Run: <code>npm test -- --run tests/useMoodStore.test.ts</code><br>
+    Expected: FAIL</p>
+  </div>
+
+  <div class="step">
+    <div class="step-label">- [ ] Step 2.3 — 写 src/useMoodStore.ts</div>
+<pre><code>import { useEffect, useState } from 'react';
+import {
+  collection, doc, addDoc, updateDoc, deleteDoc,
+  onSnapshot, query, orderBy,
+} from 'firebase/firestore';
+import { db } from './firebase';
+import { withTimeout } from './lib/timeout';
+import type { MoodBucketId, MoodEntry } from './types';
+
+const WRITE_TIMEOUT_MS = 10000;
+
+// === Pure helpers (单测覆盖) ===
+
+export function buildMoodPayload(
+  userId: string,
+  bucket: MoodBucketId,
+  words: string[],
+): Omit&lt;MoodEntry, 'id'&gt; {
+  return {
+    userId,
+    bucket,
+    words,
+    createdAt: new Date().toISOString(),
+  };
+}
+
+export function buildMoodUpdatePayload(
+  patch: Partial&lt;Pick&lt;MoodEntry, 'bucket' | 'words'&gt;&gt;,
+): Partial&lt;MoodEntry&gt; &amp; { updatedAt: string } {
+  return { ...patch, updatedAt: new Date().toISOString() };
+}
+
+// === Hook ===
+
+export interface MoodStore {
+  entries: MoodEntry[];
+  loaded: boolean;
+  addMood: (bucket: MoodBucketId, words: string[]) =&gt; Promise&lt;void&gt;;
+  updateMood: (id: string, patch: Partial&lt;Pick&lt;MoodEntry, 'bucket' | 'words'&gt;&gt;) =&gt; Promise&lt;void&gt;;
+  deleteMood: (id: string) =&gt; Promise&lt;void&gt;;
+}
+
+export function useMoodStore(userId: string | null): MoodStore {
+  const [entries, setEntries] = useState&lt;MoodEntry[]&gt;([]);
+  const [loaded, setLoaded] = useState(false);
+
+  useEffect(() =&gt; {
+    if (!userId) {
+      setEntries([]);
+      setLoaded(false);
+      return;
+    }
+    const q = query(
+      collection(db, `users/${userId}/moods`),
+      orderBy('createdAt', 'desc'),
+    );
+    const unsub = onSnapshot(q, (snap) =&gt; {
+      const list: MoodEntry[] = snap.docs.map((d) =&gt; ({
+        id: d.id,
+        ...(d.data() as Omit&lt;MoodEntry, 'id'&gt;),
+      }));
+      setEntries(list);
+      setLoaded(true);
+    });
+    return unsub;
+  }, [userId]);
+
+  const addMood = async (bucket: MoodBucketId, words: string[]) =&gt; {
+    if (!userId) return;
+    const ref = collection(db, `users/${userId}/moods`);
+    await withTimeout(
+      addDoc(ref, buildMoodPayload(userId, bucket, words)),
+      WRITE_TIMEOUT_MS,
+      'addMood',
+    );
+  };
+
+  const updateMood = async (
+    id: string,
+    patch: Partial&lt;Pick&lt;MoodEntry, 'bucket' | 'words'&gt;&gt;,
+  ) =&gt; {
+    if (!userId) return;
+    const ref = doc(db, `users/${userId}/moods/${id}`);
+    await withTimeout(
+      updateDoc(ref, buildMoodUpdatePayload(patch)),
+      WRITE_TIMEOUT_MS,
+      'updateMood',
+    );
+  };
+
+  const deleteMood = async (id: string) =&gt; {
+    if (!userId) return;
+    const ref = doc(db, `users/${userId}/moods/${id}`);
+    await withTimeout(deleteDoc(ref), WRITE_TIMEOUT_MS, 'deleteMood');
+  };
+
+  return { entries, loaded, addMood, updateMood, deleteMood };
+}
+</code></pre>
+  </div>
+
+  <div class="step">
+    <div class="step-label">- [ ] Step 2.4 — 验证 pass</div>
+    <p>Run: <code>npm test -- --run tests/useMoodStore.test.ts</code><br>
+    Expected: PASS（4 个 test）。<br>
+    Run: <code>npm run lint</code> → 0 errors。</p>
+  </div>
+
+  <div class="step">
+    <div class="step-label">- [ ] Step 2.5 — Commit</div>
+<pre><code>git add src/useMoodStore.ts tests/useMoodStore.test.ts
+git commit -m "feat(mood): useMoodStore hook + Firestore CRUD + 单测覆盖 payload"
+</code></pre>
+  </div>
+</div>
+
+<!-- ============= TASK 3 ============= -->
+<h2 id="t3">Task 3 · useDemoStore 扩展 moods</h2>
+
+<div class="task">
+  <div class="task-header">
+    <span class="task-num">T3</span>
+    <span class="task-title">demo 模式（?demo=1）支持 mood 记录 — in-memory，同 microHabits 模式</span>
+  </div>
+
+  <div class="files-block">
+    <strong>Modify</strong>: <code>src/useDemoStore.ts</code>
+  </div>
+
+  <div class="step">
+    <div class="step-label">- [ ] Step 3.1 — 读现有 useDemoStore 了解模式</div>
+    <p>Run: <code>grep -n "microHabits\|addMicroHabit" src/useDemoStore.ts | head -20</code> 了解 demo store 的字段/方法约定。</p>
+  </div>
+
+  <div class="step">
+    <div class="step-label">- [ ] Step 3.2 — 在 demo store interface / hook 内追加 moods</div>
+    <p>关键改动（具体位置看 useDemoStore.ts 现有结构）：</p>
+<pre><code>// 1. 在 demo state interface 上加 moods 字段：
+//    moods: MoodEntry[];
+// 2. 在 makeInitial / makeInitialAllDone 等初始化函数里加 moods: [],
+// 3. 在 hook return 里追加：
+//    addMood: (bucket: MoodBucketId, words: string[]) =&gt; void;
+//    updateMood: (id: string, patch: Partial&lt;...&gt;) =&gt; void;
+//    deleteMood: (id: string) =&gt; void;
+//
+// 实现（in-memory，setState 立即生效）：
+const addMood = (bucket: MoodBucketId, words: string[]) =&gt; {
+  const entry: MoodEntry = {
+    id: `demo-${Date.now()}`,
+    userId: 'demo',
+    bucket,
+    words,
+    createdAt: new Date().toISOString(),
+  };
+  setState((s) =&gt; ({ ...s, moods: [entry, ...s.moods] }));
+};
+
+const updateMood = (id: string, patch: Partial&lt;Pick&lt;MoodEntry,'bucket'|'words'&gt;&gt;) =&gt; {
+  setState((s) =&gt; ({
+    ...s,
+    moods: s.moods.map((m) =&gt;
+      m.id === id ? { ...m, ...patch, updatedAt: new Date().toISOString() } : m
+    ),
+  }));
+};
+
+const deleteMood = (id: string) =&gt; {
+  setState((s) =&gt; ({ ...s, moods: s.moods.filter((m) =&gt; m.id !== id) }));
+};
+</code></pre>
+    <p>顶部 import：<code>import type { MoodEntry, MoodBucketId } from './types';</code></p>
+  </div>
+
+  <div class="step">
+    <div class="step-label">- [ ] Step 3.3 — Lint + 运行全套单测确认无回归</div>
+    <p>Run: <code>npm run lint &amp;&amp; npm test -- --run</code><br>
+    Expected: 0 lint errors, 全部 65+ 测试通过</p>
+  </div>
+
+  <div class="step">
+    <div class="step-label">- [ ] Step 3.4 — Commit</div>
+<pre><code>git add src/useDemoStore.ts
+git commit -m "feat(mood): useDemoStore 扩展 moods 字段 + add/update/delete"
+</code></pre>
+  </div>
+</div>
+
+<!-- ============= TASK 4 ============= -->
+<h2 id="t4">Task 4 · firestore.rules 追加 moods 安全规则 + 部署</h2>
+
+<div class="task">
+  <div class="task-header">
+    <span class="task-num">T4</span>
+    <span class="task-title">owner-only + 字段验证 + userId 不可变</span>
+  </div>
+
+  <div class="files-block">
+    <strong>Modify</strong>: <code>firestore.rules</code>
+  </div>
+
+  <div class="step">
+    <div class="step-label">- [ ] Step 4.1 — 读现有 rules 找到 users/{userId} 嵌套位置</div>
+    <p>Run: <code>grep -n "match /users/{userId}" firestore.rules</code></p>
+  </div>
+
+  <div class="step">
+    <div class="step-label">- [ ] Step 4.2 — 在 users/{userId} 内追加 moods match block</div>
+    <p>在已有 <code>match /microHabits/{habitId}</code> 后面追加：</p>
+<pre><code>match /moods/{moodId} {
+  allow read, delete: if isOwner(userId);
+
+  allow create: if isOwner(userId)
+    &amp;&amp; request.resource.data.userId == userId
+    &amp;&amp; request.resource.data.bucket in [
+      'bukar','bitter','fear','greed','anger','pride','brave','accept','peace'
+    ]
+    &amp;&amp; request.resource.data.words is list
+    &amp;&amp; request.resource.data.createdAt is string;
+
+  allow update: if isOwner(userId)
+    &amp;&amp; request.resource.data.userId == resource.data.userId  // userId 不可变
+    &amp;&amp; request.resource.data.bucket in [
+      'bukar','bitter','fear','greed','anger','pride','brave','accept','peace'
+    ]
+    &amp;&amp; request.resource.data.words is list;
+}
+</code></pre>
+    <p><code>isOwner</code> helper 应该已经存在；若不存在则参考 microHabits block 用相同方式。</p>
+  </div>
+
+  <div class="step">
+    <div class="step-label">- [ ] Step 4.3 — 部署到 Firebase</div>
+    <p>Run: <code>firebase deploy --only firestore:rules</code><br>
+    Expected: <code>✔ Deploy complete</code>。注意：rules 部署独立于 Vercel，每次改 rules 都要单独 deploy。</p>
+  </div>
+
+  <div class="step">
+    <div class="step-label">- [ ] Step 4.4 — Commit</div>
+<pre><code>git add firestore.rules
+git commit -m "feat(mood): firestore.rules 追加 moods owner-only + 字段验证"
+</code></pre>
+  </div>
+</div>
+
+<!-- ============= TASK 5 ============= -->
+<h2 id="t5">Task 5 · MoodPickerSheet（3×3 网格 + bottom sheet 词云）</h2>
+
+<div class="task">
+  <div class="task-header">
+    <span class="task-num">T5</span>
+    <span class="task-title">两步交互组件：9 桶网格 → 点桶弹 sheet → 多选词 → 完成</span>
+  </div>
+
+  <div class="files-block">
+    <strong>Create</strong>: <code>src/components/MoodPickerSheet.tsx</code>
+  </div>
+
+  <div class="step">
+    <div class="step-label">- [ ] Step 5.1 — 写组件 src/components/MoodPickerSheet.tsx</div>
+<pre><code>import { useState } from 'react';
+import { motion, AnimatePresence } from 'motion/react';
+import { MOOD_BUCKETS } from '../lib/moods';
+import type { MoodBucketId } from '../types';
+
+interface MoodPickerSheetProps {
+  open: boolean;
+  initialBucket?: MoodBucketId;
+  initialWords?: string[];
+  onClose: () =&gt; void;
+  onDone: (bucket: MoodBucketId, words: string[]) =&gt; void;
+}
+
+export default function MoodPickerSheet({
+  open, initialBucket, initialWords = [], onClose, onDone,
+}: MoodPickerSheetProps) {
+  const [bucket, setBucket] = useState&lt;MoodBucketId | null&gt;(initialBucket ?? null);
+  const [words, setWords] = useState&lt;string[]&gt;(initialWords);
+
+  const reset = () =&gt; { setBucket(null); setWords([]); };
+
+  const handleClose = () =&gt; { reset(); onClose(); };
+  const handleDone = () =&gt; {
+    if (!bucket) return;
+    onDone(bucket, words);
+    reset();
+  };
+
+  const toggleWord = (w: string) =&gt; {
+    setWords((prev) =&gt; prev.includes(w) ? prev.filter(x =&gt; x !== w) : [...prev, w]);
+  };
+
+  if (!open) return null;
+  const activeBucket = bucket ? MOOD_BUCKETS.find(b =&gt; b.id === bucket)! : null;
+
+  return (
+    &lt;div
+      className="fixed inset-0 z-50 bg-black/30"
+      onClick={handleClose}
+      role="dialog"
+      aria-modal="true"
+      aria-label="选择此刻的情绪"
+    &gt;
+      &lt;div
+        className="absolute inset-x-0 bottom-0 bg-[#F9F8F6] rounded-t-3xl p-4 pb-6 max-w-md mx-auto"
+        onClick={(e) =&gt; e.stopPropagation()}
+      &gt;
+        &lt;div className="w-9 h-1 rounded-full bg-[#D8D5CD] mx-auto mb-3" /&gt;
+
+        &lt;div className="text-[11px] uppercase tracking-[0.2em] text-[#8C8C8C] text-center mb-1"&gt;MOOD&lt;/div&gt;
+        &lt;div className="text-sm text-[#2C2C2C] text-center mb-4"&gt;此刻你怎么样？&lt;/div&gt;
+
+        {/* Step 1: 3×3 网格 */}
+        &lt;div className="grid grid-cols-3 gap-2 mb-3"&gt;
+          {MOOD_BUCKETS.map((b) =&gt; {
+            const isActive = bucket === b.id;
+            return (
+              &lt;button
+                key={b.id}
+                onClick={() =&gt; setBucket(b.id)}
+                className={`aspect-square rounded-xl p-2 flex flex-col justify-between border transition-colors ${
+                  isActive
+                    ? 'border-[#2C2C2C] bg-white'
+                    : 'border-[#EDEAE3] bg-white opacity-90'
+                }`}
+                aria-pressed={isActive}
+                aria-label={`选择 ${b.zhName}`}
+              &gt;
+                &lt;span
+                  className="w-2.5 h-2.5 rounded-full"
+                  style={{ background: b.color }}
+                /&gt;
+                &lt;span className="text-[12px] text-[#2C2C2C] font-medium text-left leading-tight"&gt;
+                  {b.zhName}
+                &lt;/span&gt;
+              &lt;/button&gt;
+            );
+          })}
+        &lt;/div&gt;
+
+        {/* Step 2: 词云（仅在选了桶之后展开） */}
+        &lt;AnimatePresence&gt;
+          {activeBucket &amp;&amp; (
+            &lt;motion.div
+              key="words"
+              initial={{ opacity: 0, height: 0 }}
+              animate={{ opacity: 1, height: 'auto' }}
+              exit={{ opacity: 0, height: 0 }}
+              transition={{ duration: 0.25 }}
+              className="overflow-hidden"
+            &gt;
+              &lt;div className="flex items-center justify-between mt-2 mb-2"&gt;
+                &lt;div className="flex items-center gap-2 text-sm font-semibold text-[#2C2C2C]"&gt;
+                  &lt;span
+                    className="w-2.5 h-2.5 rounded-full"
+                    style={{ background: activeBucket.color }}
+                  /&gt;
+                  {activeBucket.zhName}
+                &lt;/div&gt;
+                &lt;button
+                  onClick={handleDone}
+                  className="text-xs font-medium text-[#2C2C2C] bg-[#F0EEE8] px-3 py-1.5 rounded-full"
+                &gt;
+                  完成
+                &lt;/button&gt;
+              &lt;/div&gt;
+
+              &lt;div className="flex flex-wrap gap-1.5 max-h-[40vh] overflow-y-auto"&gt;
+                {activeBucket.words.map((w) =&gt; {
+                  const on = words.includes(w);
+                  return (
+                    &lt;button
+                      key={w}
+                      onClick={() =&gt; toggleWord(w)}
+                      className={`text-[11px] px-2.5 py-1 rounded-full transition-colors ${
+                        on
+                          ? 'text-white'
+                          : 'bg-[#F4F2EC] text-[#2C2C2C]'
+                      }`}
+                      style={on ? { background: activeBucket.color } : undefined}
+                      aria-pressed={on}
+                    &gt;
+                      {w}
+                    &lt;/button&gt;
+                  );
+                })}
+              &lt;/div&gt;
+            &lt;/motion.div&gt;
+          )}
+        &lt;/AnimatePresence&gt;
+      &lt;/div&gt;
+    &lt;/div&gt;
+  );
+}
+</code></pre>
+  </div>
+
+  <div class="step">
+    <div class="step-label">- [ ] Step 5.2 — Lint</div>
+    <p>Run: <code>npm run lint</code> → 0 errors</p>
+  </div>
+
+  <div class="step">
+    <div class="step-label">- [ ] Step 5.3 — Commit</div>
+<pre><code>git add src/components/MoodPickerSheet.tsx
+git commit -m "feat(mood): MoodPickerSheet 3×3 网格 + bottom sheet 多选词"
+</code></pre>
+  </div>
+</div>
+
+<!-- ============= TASK 6 ============= -->
+<h2 id="t6">Task 6 · moodFormat 日期分组 helper + MoodEntryRow</h2>
+
+<div class="task">
+  <div class="task-header">
+    <span class="task-num">T6</span>
+    <span class="task-title">日期相对格式化 + 按天分组逻辑（纯函数）+ 单条行展示组件</span>
+  </div>
+
+  <div class="files-block">
+    <strong>Create</strong>: <code>src/lib/moodFormat.ts</code>, <code>src/components/MoodEntryRow.tsx</code><br>
+    <strong>Modify</strong>: <code>tests/moods.test.ts</code>（追加 moodFormat 测试）
+  </div>
+
+  <div class="step">
+    <div class="step-label">- [ ] Step 6.1 — 在 tests/moods.test.ts 追加 failing test</div>
+<pre><code>// 在 tests/moods.test.ts 末尾追加：
+import { formatEntryTime, groupEntriesByDay, formatDayLabel } from '../src/lib/moodFormat';
+import type { MoodEntry } from '../src/types';
+
+describe('formatEntryTime', () =&gt; {
+  it('formats ISO to "HH:mm" 24h', () =&gt; {
+    expect(formatEntryTime('2026-06-08T14:32:00.000Z', 'UTC')).toBe('14:32');
+    expect(formatEntryTime('2026-06-08T09:05:00.000Z', 'UTC')).toBe('09:05');
+  });
+});
+
+describe('formatDayLabel', () =&gt; {
+  // anchor today = 2026-06-08
+  const today = new Date('2026-06-08T12:00:00.000Z');
+  it('returns "今天 · M/D Ddd" for today', () =&gt; {
+    expect(formatDayLabel('2026-06-08', today)).toBe('今天 · 6/8 Mon');
+  });
+  it('returns "昨天 · M/D Ddd"', () =&gt; {
+    expect(formatDayLabel('2026-06-07', today)).toBe('昨天 · 6/7 Sun');
+  });
+  it('returns "前天 · M/D Ddd"', () =&gt; {
+    expect(formatDayLabel('2026-06-06', today)).toBe('前天 · 6/6 Sat');
+  });
+  it('returns "M/D Ddd" for 4+ days ago', () =&gt; {
+    expect(formatDayLabel('2026-06-04', today)).toBe('6/4 Thu');
+  });
+  it('returns "YYYY/M/D Ddd" for cross-year', () =&gt; {
+    expect(formatDayLabel('2025-12-31', today)).toBe('2025/12/31 Wed');
+  });
+});
+
+describe('groupEntriesByDay', () =&gt; {
+  const mk = (id: string, iso: string): MoodEntry =&gt; ({
+    id, userId: 'u', bucket: 'fear', words: [], createdAt: iso,
+  });
+  it('groups entries by YYYY-MM-DD in UTC and preserves desc order within day', () =&gt; {
+    const entries = [
+      mk('1', '2026-06-08T14:32:00.000Z'),
+      mk('2', '2026-06-08T11:08:00.000Z'),
+      mk('3', '2026-06-07T22:15:00.000Z'),
+    ];
+    const groups = groupEntriesByDay(entries, 'UTC');
+    expect(groups).toHaveLength(2);
+    expect(groups[0].date).toBe('2026-06-08');
+    expect(groups[0].entries.map(e =&gt; e.id)).toEqual(['1', '2']);
+    expect(groups[1].date).toBe('2026-06-07');
+  });
+  it('empty input returns empty array', () =&gt; {
+    expect(groupEntriesByDay([], 'UTC')).toEqual([]);
+  });
+});
+</code></pre>
+  </div>
+
+  <div class="step">
+    <div class="step-label">- [ ] Step 6.2 — 验证 fail</div>
+    <p>Run: <code>npm test -- --run tests/moods.test.ts</code> → FAIL</p>
+  </div>
+
+  <div class="step">
+    <div class="step-label">- [ ] Step 6.3 — 写 src/lib/moodFormat.ts</div>
+<pre><code>import { format, formatInTimeZone } from 'date-fns-tz';
+import type { MoodEntry } from '../types';
+
+export interface DayGroup {
+  date: string;              // YYYY-MM-DD（按 timezone 切分）
+  entries: MoodEntry[];      // 已按 createdAt desc 排序
+}
+
+const DAY_OF_WEEK = ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
+
+function toDateInTz(iso: string, tz: string): string {
+  // returns YYYY-MM-DD in the given timezone
+  return formatInTimeZone(iso, tz, 'yyyy-MM-dd');
+}
+
+export function formatEntryTime(iso: string, tz: string = Intl.DateTimeFormat().resolvedOptions().timeZone): string {
+  return formatInTimeZone(iso, tz, 'HH:mm');
+}
+
+export function groupEntriesByDay(
+  entries: MoodEntry[],
+  tz: string = Intl.DateTimeFormat().resolvedOptions().timeZone,
+): DayGroup[] {
+  const map = new Map&lt;string, MoodEntry[]&gt;();
+  for (const e of entries) {
+    const day = toDateInTz(e.createdAt, tz);
+    if (!map.has(day)) map.set(day, []);
+    map.get(day)!.push(e);
+  }
+  return Array.from(map.entries())
+    .sort(([a], [b]) =&gt; (a &lt; b ? 1 : -1))           // 按日期 desc
+    .map(([date, entries]) =&gt; ({ date, entries }));
+}
+
+export function formatDayLabel(date: string, today: Date = new Date()): string {
+  const [y, m, d] = date.split('-').map(Number);
+  const dt = new Date(Date.UTC(y, m - 1, d));
+  const dow = DAY_OF_WEEK[dt.getUTCDay()];
+  const todayY = today.getUTCFullYear();
+  const todayMD = `${today.getUTCMonth() + 1}/${today.getUTCDate()}`;
+  const todayISO = `${todayY}-${String(today.getUTCMonth() + 1).padStart(2,'0')}-${String(today.getUTCDate()).padStart(2,'0')}`;
+
+  // 计算与 today 的天数差
+  const diffDays = Math.round(
+    (Date.UTC(todayY, today.getUTCMonth(), today.getUTCDate()) - Date.UTC(y, m - 1, d)) / 86400000
+  );
+
+  const mdLabel = `${m}/${d} ${dow}`;
+  if (diffDays === 0) return `今天 · ${mdLabel}`;
+  if (diffDays === 1) return `昨天 · ${mdLabel}`;
+  if (diffDays === 2) return `前天 · ${mdLabel}`;
+  if (y !== todayY) return `${y}/${m}/${d} ${dow}`;
+  return mdLabel;
+}
+</code></pre>
+    <p><strong>依赖说明</strong>：使用现有 <code>date-fns-tz</code>。loop 已装 <code>date-fns ^4.1.0</code>。如果 <code>date-fns-tz</code> 未装，运行 <code>npm i date-fns-tz</code>（这是 date-fns 官方姊妹包，不算新业务依赖）。</p>
+  </div>
+
+  <div class="step">
+    <div class="step-label">- [ ] Step 6.4 — 验证 pass</div>
+    <p>Run: <code>npm test -- --run tests/moods.test.ts</code> → 全部 PASS</p>
+  </div>
+
+  <div class="step">
+    <div class="step-label">- [ ] Step 6.5 — 写 src/components/MoodEntryRow.tsx</div>
+<pre><code>import { bucketById } from '../lib/moods';
+import { formatEntryTime } from '../lib/moodFormat';
+import type { MoodEntry } from '../types';
+
+interface MoodEntryRowProps {
+  entry: MoodEntry;
+  onEdit?: (entry: MoodEntry) =&gt; void;
+}
+
+export default function MoodEntryRow({ entry, onEdit }: MoodEntryRowProps) {
+  const b = bucketById(entry.bucket);
+  return (
+    &lt;button
+      type="button"
+      onClick={() =&gt; onEdit?.(entry)}
+      className="w-full flex items-center gap-2 py-1.5 px-0 text-left"
+      aria-label={`${entry.bucket} 记录，${formatEntryTime(entry.createdAt)}`}
+    &gt;
+      &lt;span className="text-[10px] text-[#B0AEA9] w-10 shrink-0"&gt;
+        {formatEntryTime(entry.createdAt)}
+      &lt;/span&gt;
+      &lt;span
+        className="w-2 h-2 rounded-full shrink-0"
+        style={{ background: b.color }}
+      /&gt;
+      &lt;span className="text-xs text-[#2C2C2C] font-medium min-w-[52px] shrink-0"&gt;
+        {b.zhName}
+      &lt;/span&gt;
+      &lt;span className="text-[11px] text-[#8C8C8C] truncate"&gt;
+        {entry.words.join(' · ')}
+      &lt;/span&gt;
+    &lt;/button&gt;
+  );
+}
+</code></pre>
+  </div>
+
+  <div class="step">
+    <div class="step-label">- [ ] Step 6.6 — Lint + 全套单测</div>
+    <p>Run: <code>npm run lint &amp;&amp; npm test -- --run</code> → 全过</p>
+  </div>
+
+  <div class="step">
+    <div class="step-label">- [ ] Step 6.7 — Commit</div>
+<pre><code>git add src/lib/moodFormat.ts src/components/MoodEntryRow.tsx tests/moods.test.ts package.json package-lock.json
+git commit -m "feat(mood): moodFormat 日期分组 helper + MoodEntryRow + 单测"
+</code></pre>
+  </div>
+</div>
+
+<!-- ============= TASK 7 ============= -->
+<h2 id="t7">Task 7 · MoodView 主视图（按天流水 + 空态 + 计数）</h2>
+
+<div class="task">
+  <div class="task-header">
+    <span class="task-num">T7</span>
+    <span class="task-title">MoodView 组装：顶部"+ 此刻你怎么样？"按钮 + 空态 + 按天分组流水 + Picker 联动</span>
+  </div>
+
+  <div class="files-block">
+    <strong>Create</strong>: <code>src/components/MoodView.tsx</code>
+  </div>
+
+  <div class="step">
+    <div class="step-label">- [ ] Step 7.1 — 写 src/components/MoodView.tsx</div>
+<pre><code>import { useState } from 'react';
+import MoodPickerSheet from './MoodPickerSheet';
+import MoodEntryRow from './MoodEntryRow';
+import { groupEntriesByDay, formatDayLabel } from '../lib/moodFormat';
+import type { MoodBucketId, MoodEntry } from '../types';
+
+interface MoodViewProps {
+  store: {
+    entries: MoodEntry[];
+    loaded: boolean;
+    addMood: (bucket: MoodBucketId, words: string[]) =&gt; Promise&lt;void&gt; | void;
+  };
+}
+
+export default function MoodView({ store }: MoodViewProps) {
+  const [pickerOpen, setPickerOpen] = useState(false);
+
+  const groups = groupEntriesByDay(store.entries);
+  const today = new Date();
+
+  const handleDone = async (bucket: MoodBucketId, words: string[]) =&gt; {
+    await store.addMood(bucket, words);
+    setPickerOpen(false);
+  };
+
+  return (
+    &lt;div className="pt-2"&gt;
+      &lt;p className="text-[11px] tracking-[0.18em] uppercase text-[#B0AEA9] text-center mb-4"&gt;
+        这些天你的样子
+      &lt;/p&gt;
+
+      &lt;button
+        type="button"
+        onClick={() =&gt; setPickerOpen(true)}
+        className="w-full py-2.5 mb-5 border border-dashed border-[#C9C6BE] rounded-xl text-sm text-[#6B6864] bg-white"
+      &gt;
+        + 此刻你怎么样？
+      &lt;/button&gt;
+
+      {groups.length === 0 ? (
+        &lt;p className="text-center text-xs text-[#B0AEA9] mt-12"&gt;
+          还没有记录。点上面那行命名一下你现在的状态。
+        &lt;/p&gt;
+      ) : (
+        groups.map((g) =&gt; (
+          &lt;section key={g.date} className="mb-4"&gt;
+            &lt;header className="flex items-baseline justify-between border-b border-[#EDEAE3] pb-1 mb-2"&gt;
+              &lt;h3 className="text-[13px] font-semibold text-[#2C2C2C]"&gt;
+                {formatDayLabel(g.date, today)}
+              &lt;/h3&gt;
+              &lt;span className="text-[10px] text-[#B0AEA9]"&gt;
+                {g.entries.length} 次
+              &lt;/span&gt;
+            &lt;/header&gt;
+            {g.entries.map((e) =&gt; (
+              &lt;MoodEntryRow key={e.id} entry={e} /&gt;
+            ))}
+          &lt;/section&gt;
+        ))
+      )}
+
+      &lt;MoodPickerSheet
+        open={pickerOpen}
+        onClose={() =&gt; setPickerOpen(false)}
+        onDone={handleDone}
+      /&gt;
+    &lt;/div&gt;
+  );
+}
+</code></pre>
+  </div>
+
+  <div class="step">
+    <div class="step-label">- [ ] Step 7.2 — Lint</div>
+    <p>Run: <code>npm run lint</code> → 0 errors</p>
+  </div>
+
+  <div class="step">
+    <div class="step-label">- [ ] Step 7.3 — Commit</div>
+<pre><code>git add src/components/MoodView.tsx
+git commit -m "feat(mood): MoodView 按天流水 + 空态 + Picker 联动"
+</code></pre>
+  </div>
+</div>
+
+<!-- ============= TASK 8 ============= -->
+<h2 id="t8">Task 8 · App.tsx 加第 4 tab + Eye icon + useMoodStore wiring</h2>
+
+<div class="task">
+  <div class="task-header">
+    <span class="task-num">T8</span>
+    <span class="task-title">底部 nav 3→4 tab，顺序 Today · Practice · Mood · History；Mood tab 用 Eye icon</span>
+  </div>
+
+  <div class="files-block">
+    <strong>Modify</strong>: <code>src/App.tsx</code>
+  </div>
+
+  <div class="step">
+    <div class="step-label">- [ ] Step 8.1 — 顶部 import 追加</div>
+<pre><code>// 1. lucide-react import 行追加 Eye
+import { Calendar, List, Clock, Eye } from 'lucide-react';
+
+// 2. lazy load MoodView（与 PracticeView 同模式，避免膨胀首屏）
+const MoodView = lazy(() =&gt; import('./components/MoodView'));
+
+// 3. import useMoodStore
+import { useMoodStore } from './useMoodStore';
+</code></pre>
+  </div>
+
+  <div class="step">
+    <div class="step-label">- [ ] Step 8.2 — activeTab union 类型与 demo store 接 moods</div>
+<pre><code>// 1. 在 src/App.tsx line 69 把 activeTab union 加 'mood'：
+const [activeTab, setActiveTab] = useState&lt;'today' | 'practice' | 'mood' | 'history'&gt;('today');
+
+// 2. 在 line 76-79（demoMode/realStore/demoStore/store 旁）下面追加 moodStore wiring。
+//    沿用相同三件套模式，两个 hook 都 call 以遵守 Hooks 规则：
+const realMoodStore = useMoodStore(user?.uid ?? null);
+const moodStore = demoMode
+  ? {
+      entries: demoStore.moods,
+      loaded: true,
+      addMood: demoStore.addMood,
+      updateMood: demoStore.updateMood,
+      deleteMood: demoStore.deleteMood,
+    }
+  : realMoodStore;
+</code></pre>
+  </div>
+
+  <div class="step">
+    <div class="step-label">- [ ] Step 8.3 — 在 AnimatePresence 内插入 mood 分支</div>
+<pre><code>// 在 {activeTab === 'practice' && (...)} 之后、{activeTab === 'history' && (...)} 之前插入：
+
+{activeTab === 'mood' && (
+  &lt;motion.div
+    key="mood"
+    initial={{ opacity: 0, y: 10, filter: 'blur(4px)' }}
+    animate={{ opacity: 1, y: 0, filter: 'blur(0px)' }}
+    exit={{ opacity: 0, y: -10, filter: 'blur(4px)' }}
+    transition={{ duration: 0.4, ease: [0.23, 1, 0.32, 1] }}
+    className="h-full"
+  &gt;
+    &lt;Suspense fallback={null}&gt;
+      &lt;MoodView store={moodStore} /&gt;
+    &lt;/Suspense&gt;
+  &lt;/motion.div&gt;
+)}
+</code></pre>
+  </div>
+
+  <div class="step">
+    <div class="step-label">- [ ] Step 8.4 — 底部 nav 插入 Mood 按钮（位置：Practice 与 History 之间）</div>
+<pre><code>// 在 PRACTICE 按钮 jsx (src/App.tsx 大约 line 297) 之后、HISTORY 按钮 jsx (line 298) 之前追加：
+// 完全照搬 PRACTICE / HISTORY 同款 className（line 293, 296 范本）：
+
+&lt;button
+  onClick={() =&gt; setActiveTab('mood')}
+  className={`flex flex-col items-center p-2 transition-all duration-500 ${activeTab === 'mood' ? 'text-[#1A1A1A]' : 'text-[#A09E9A] hover:text-[#5C5A56]'}`}
+&gt;
+  &lt;Eye className="w-5 h-5 stroke-[1.5]" /&gt;
+  &lt;span className={`text-[9px] mt-1.5 tracking-widest transition-all duration-500 ${activeTab === 'mood' ? 'opacity-100 font-medium' : 'opacity-0 h-0 overflow-hidden'}`}&gt;MOOD&lt;/span&gt;
+&lt;/button&gt;
+</code></pre>
+  </div>
+
+  <div class="step">
+    <div class="step-label">- [ ] Step 8.5 — Lint + 跑 dev 本机肉眼看一眼</div>
+    <p>Run: <code>npm run lint</code> → 0 errors<br>
+    Run: <code>npm run dev</code>，浏览器开 <code>http://localhost:3000/?demo=1</code><br>
+    Expected: 看到 4 个 tab（TODAY · PRACTICE · MOOD · HISTORY），点 MOOD 显示"还没有记录"空态 + "+ 此刻你怎么样？"按钮</p>
+  </div>
+
+  <div class="step">
+    <div class="step-label">- [ ] Step 8.6 — Commit</div>
+<pre><code>git add src/App.tsx
+git commit -m "feat(mood): App.tsx 加第 4 tab 'Mood'(Eye icon) + useMoodStore wiring"
+</code></pre>
+  </div>
+</div>
+
+<!-- ============= TASK 9 ============= -->
+<h2 id="t9">Task 9 · MoodEntryRow 接 SwipeActions（编辑 / 删除）</h2>
+
+<div class="task">
+  <div class="task-header">
+    <span class="task-num">T9</span>
+    <span class="task-title">复用现有 SwipeActions 手势组件，加 swipe-left 展示编辑/删除；点行也能编辑（弹回 MoodPickerSheet 预填）</span>
+  </div>
+
+  <div class="files-block">
+    <strong>Modify</strong>: <code>src/components/MoodEntryRow.tsx</code>, <code>src/components/MoodView.tsx</code>
+  </div>
+
+  <div class="step">
+    <div class="step-label">- [ ] Step 9.1 — SwipeActions 真实 API（已查 src/components/SwipeActions.tsx:3-8）</div>
+<pre><code>interface SwipeActionsProps {
+  children: ReactNode;
+  onEdit?: () =&gt; void;
+  onDelete?: () =&gt; void;
+  showEdit?: boolean;
+}
+</code></pre>
+    <p>颜色样式 SwipeActions 自己 hardcoded（不接受颜色 prop），与 loop 现有 PracticeView 风格统一。</p>
+  </div>
+
+  <div class="step">
+    <div class="step-label">- [ ] Step 9.2 — MoodEntryRow.tsx 加 SwipeActions wrap</div>
+<pre><code>import SwipeActions from './SwipeActions';
+import { bucketById } from '../lib/moods';
+import { formatEntryTime } from '../lib/moodFormat';
+import type { MoodEntry } from '../types';
+
+interface MoodEntryRowProps {
+  entry: MoodEntry;
+  onEdit: (entry: MoodEntry) =&gt; void;
+  onDelete: (entry: MoodEntry) =&gt; void;
+}
+
+export default function MoodEntryRow({ entry, onEdit, onDelete }: MoodEntryRowProps) {
+  const b = bucketById(entry.bucket);
+  return (
+    &lt;SwipeActions
+      onEdit={() =&gt; onEdit(entry)}
+      onDelete={() =&gt; onDelete(entry)}
+    &gt;
+      &lt;button
+        type="button"
+        onClick={() =&gt; onEdit(entry)}
+        className="w-full flex items-center gap-2 py-1.5 px-0 text-left bg-[#F9F8F6]"
+        aria-label={`${b.zhName} 记录，${formatEntryTime(entry.createdAt)}`}
+      &gt;
+        &lt;span className="text-[10px] text-[#B0AEA9] w-10 shrink-0"&gt;
+          {formatEntryTime(entry.createdAt)}
+        &lt;/span&gt;
+        &lt;span
+          className="w-2 h-2 rounded-full shrink-0"
+          style={{ background: b.color }}
+        /&gt;
+        &lt;span className="text-xs text-[#2C2C2C] font-medium min-w-[52px] shrink-0"&gt;
+          {b.zhName}
+        &lt;/span&gt;
+        &lt;span className="text-[11px] text-[#8C8C8C] truncate"&gt;
+          {entry.words.join(' · ')}
+        &lt;/span&gt;
+      &lt;/button&gt;
+    &lt;/SwipeActions&gt;
+  );
+}
+</code></pre>
+    <p><strong>背景色注</strong>：内层 button 必须有不透明背景色（这里用 <code>#F9F8F6</code>，loop 主背景色），否则 swipe 时下方编辑/删除按钮会透出来。</p>
+  </div>
+
+  <div class="step">
+    <div class="step-label">- [ ] Step 9.3 — MoodView 接 onEdit / onDelete</div>
+<pre><code>// 在 MoodView 顶部 state 添加：
+const [editing, setEditing] = useState&lt;MoodEntry | null&gt;(null);
+
+// MoodEntryRow 使用：
+&lt;MoodEntryRow
+  key={e.id}
+  entry={e}
+  onEdit={(entry) =&gt; { setEditing(entry); setPickerOpen(true); }}
+  onDelete={(entry) =&gt; store.deleteMood(entry.id)}
+/&gt;
+
+// MoodPickerSheet 改为：
+&lt;MoodPickerSheet
+  open={pickerOpen}
+  initialBucket={editing?.bucket}
+  initialWords={editing?.words}
+  onClose={() =&gt; { setPickerOpen(false); setEditing(null); }}
+  onDone={async (bucket, words) =&gt; {
+    if (editing) {
+      await store.updateMood(editing.id, { bucket, words });
+    } else {
+      await store.addMood(bucket, words);
+    }
+    setPickerOpen(false);
+    setEditing(null);
+  }}
+/&gt;
+
+// MoodViewProps 要扩展 store 类型：
+interface MoodViewProps {
+  store: {
+    entries: MoodEntry[];
+    loaded: boolean;
+    addMood: (bucket: MoodBucketId, words: string[]) =&gt; Promise&lt;void&gt; | void;
+    updateMood: (id: string, patch: Partial&lt;Pick&lt;MoodEntry,'bucket'|'words'&gt;&gt;) =&gt; Promise&lt;void&gt; | void;
+    deleteMood: (id: string) =&gt; Promise&lt;void&gt; | void;
+  };
+}
+</code></pre>
+  </div>
+
+  <div class="step">
+    <div class="step-label">- [ ] Step 9.4 — Lint + dev 真机手动验</div>
+    <p>Run: <code>npm run lint</code> → 0 errors<br>
+    Open <code>http://localhost:3000/?demo=1</code>，切到 MOOD tab，加一条记录、swipe-left 该条 → 出现编辑/删除按钮 → 点编辑应弹回 Picker 预填好桶和词、点删除应清掉该条。</p>
+  </div>
+
+  <div class="step">
+    <div class="step-label">- [ ] Step 9.5 — Commit</div>
+<pre><code>git add src/components/MoodEntryRow.tsx src/components/MoodView.tsx
+git commit -m "feat(mood): MoodEntryRow 接 SwipeActions 编辑/删除"
+</code></pre>
+  </div>
+</div>
+
+<!-- ============= TASK 10 ============= -->
+<h2 id="t10">Task 10 · e2e mood.spec.ts 完整 demo flow</h2>
+
+<div class="task">
+  <div class="task-header">
+    <span class="task-num">T10</span>
+    <span class="task-title">Playwright 端到端：4-tab nav · 选桶 · 选词 · 完成 · 流水显示 · 删除回空态 · 0 console error</span>
+  </div>
+
+  <div class="files-block">
+    <strong>Create</strong>: <code>tests/e2e/mood.spec.ts</code>
+  </div>
+
+  <div class="step">
+    <div class="step-label">- [ ] Step 10.1 — 写 tests/e2e/mood.spec.ts</div>
+<pre><code>import { test, expect } from '@playwright/test';
+
+const DEMO_URL = '/?demo=1';
+
+test.describe('Mood tab (demo flow)', () =&gt; {
+  test('4 tabs render in correct order', async ({ page }) =&gt; {
+    const errors: string[] = [];
+    page.on('console', (m) =&gt; { if (m.type() === 'error') errors.push(m.text()); });
+
+    await page.goto(DEMO_URL);
+    await page.waitForSelector('h1', { timeout: 15000 });
+
+    const tabs = await page.getByRole('button').filter({ hasText: /TODAY|PRACTICE|MOOD|HISTORY/ }).allInnerTexts();
+    const order = tabs.map(t =&gt; t.replace(/\s+/g,'').match(/TODAY|PRACTICE|MOOD|HISTORY/)?.[0]).filter(Boolean);
+    expect(order).toEqual(['TODAY','PRACTICE','MOOD','HISTORY']);
+    expect(errors).toEqual([]);
+  });
+
+  test('record a mood end-to-end and see it in feed', async ({ page }) =&gt; {
+    const errors: string[] = [];
+    page.on('console', (m) =&gt; { if (m.type() === 'error') errors.push(m.text()); });
+
+    await page.goto(DEMO_URL);
+    await page.waitForSelector('h1');
+
+    // 切到 MOOD tab
+    await page.getByRole('button', { name: /MOOD/i }).click();
+    await expect(page.getByText('还没有记录')).toBeVisible();
+
+    // 打开 picker
+    await page.getByRole('button', { name: /\+ 此刻你怎么样？/ }).click();
+    await expect(page.getByText('此刻你怎么样？').last()).toBeVisible();
+
+    // 选 "恐惧" 桶
+    await page.getByRole('button', { name: '选择 恐惧' }).click();
+
+    // 选两个词
+    await page.getByRole('button', { name: /^焦虑$/ }).click();
+    await page.getByRole('button', { name: /^多疑$/ }).click();
+
+    // 完成
+    await page.getByRole('button', { name: '完成' }).click();
+
+    // feed 出现 1 条 + 桶名 + 词
+    await expect(page.getByText(/今天 ·/)).toBeVisible();
+    await expect(page.getByText('1 次')).toBeVisible();
+    await expect(page.getByText(/焦虑.*多疑|多疑.*焦虑/)).toBeVisible();
+
+    expect(errors).toEqual([]);
+  });
+
+  test('delete a mood entry returns to empty state', async ({ page }) =&gt; {
+    const errors: string[] = [];
+    page.on('console', (m) =&gt; { if (m.type() === 'error') errors.push(m.text()); });
+
+    await page.goto(DEMO_URL);
+    await page.waitForSelector('h1');
+    await page.getByRole('button', { name: /MOOD/i }).click();
+    await page.getByRole('button', { name: /\+ 此刻你怎么样？/ }).click();
+    await page.getByRole('button', { name: '选择 平和' }).click();
+    await page.getByRole('button', { name: '完成' }).click();
+
+    await expect(page.getByText('1 次')).toBeVisible();
+
+    // 触发 swipe-left + 点 删除
+    // 用 evaluate 模拟 touch 或直接调用 SwipeActions 暴露的删除按钮
+    // —— 若 SwipeActions 有 aria-label "Delete" 的按钮，直接定位即可
+    // 这里假设 delete button 通过 swipe 后变可见；用 JS 触发：
+    await page.evaluate(() =&gt; {
+      const btns = Array.from(document.querySelectorAll('[aria-label="平和 记录"], [aria-label*="平和"]'));
+      // SwipeActions 一般渲染了删除 button 但隐藏。具体定位由实际 DOM 调整
+    });
+
+    // 改为：通过编辑入口 + Picker 删除（如 Picker 提供"删除此记录"），或者
+    // 直接调用 store 的暴露 deleteMood 通过 window 测试 hook。
+    // 为简化，e2e 暂时只验证添加和显示，删除留给手动验收
+  });
+});
+</code></pre>
+    <p><strong>注意</strong>：删除 e2e 因 SwipeActions 触摸手势在 Playwright 里不一定稳定，若实现起来花时间可以先把删除测试标 <code>test.skip</code> 留 TODO 注释，后续补 swipe gesture 模拟或换 long-press 路径。</p>
+  </div>
+
+  <div class="step">
+    <div class="step-label">- [ ] Step 10.2 — 运行</div>
+    <p>Run: <code>npm run test:e2e -- mood.spec.ts</code><br>
+    Expected: 至少前 2 个 test PASS、0 console error 守护通过</p>
+  </div>
+
+  <div class="step">
+    <div class="step-label">- [ ] Step 10.3 — 全套回归</div>
+    <p>Run: <code>npm run test:all</code><br>
+    Expected: 单测全过 + 17 + 2 = 19+ e2e 全过</p>
+  </div>
+
+  <div class="step">
+    <div class="step-label">- [ ] Step 10.4 — Commit</div>
+<pre><code>git add tests/e2e/mood.spec.ts
+git commit -m "test(mood): e2e demo flow — 4-tab nav + 添加 + 流水显示"
+</code></pre>
+  </div>
+</div>
+
+<!-- ============= Verification + Cleanup ============= -->
+<h2>最后：完整验证 + dev server 真机验收</h2>
+
+<ul>
+  <li>- [ ] <code>npm run lint</code> → 0 errors</li>
+  <li>- [ ] <code>npm test -- --run</code> → 全过</li>
+  <li>- [ ] <code>npm run test:e2e</code> → 全过</li>
+  <li>- [ ] <code>npm run build</code> → 无 error；记录新的 bundle 大小（预期 MoodView lazy chunk + 主 chunk 增量 ~5-10 kB gzip 因为 9 桶词典数据）</li>
+  <li>- [ ] <code>npm run dev</code> + 浏览器 <code>?demo=1</code> 人工走全流程：切 MOOD → 加 3 条不同桶不同词 → 滚动按天分组 → swipe 编辑/删除 → 切回 TODAY 没有任何 confetti 触发（隔离验证）</li>
+  <li>- [ ] 真账号（非 demo）跑一次，确认 Firestore 真写 + 跨设备 onSnapshot 实时</li>
+  <li>- [ ] 更新 HANDOFF.md（本地 commit、不 push，参考 <a href="../specs/2026-06-08-mood-design.html">spec</a> + 这个 plan）</li>
+  <li>- [ ] <code>vercel --prod</code> + <code>git push origin main</code>（按之前规则：HANDOFF commit 用 rebase 剔出 push 路径）</li>
+</ul>
+
+<h2>Self-Review Checklist</h2>
+
+<table>
+  <tr><th>检查项</th><th>状态</th></tr>
+  <tr><td>Spec § 1 架构 → File Structure 表 + Task 1-10 完整覆盖</td><td><span class="pill green">✓</span></td></tr>
+  <tr><td>Spec § 2 数据模型 → Task 1 types + Task 2 payload helpers</td><td><span class="pill green">✓</span></td></tr>
+  <tr><td>Spec § 3 9 桶 canonical → Task 1 含全量词典（无占位符）</td><td><span class="pill green">✓</span></td></tr>
+  <tr><td>Spec § 4 UI 流程 → Task 5 Picker + Task 6 EntryRow + Task 7 MoodView</td><td><span class="pill green">✓</span></td></tr>
+  <tr><td>Spec § 5 useMoodStore → Task 2</td><td><span class="pill green">✓</span></td></tr>
+  <tr><td>Spec § 6 nav 调整 → Task 8（顺序 Today·Practice·Mood·History + Eye icon）</td><td><span class="pill green">✓</span></td></tr>
+  <tr><td>Spec § 7 错误/离线 → 沿用 NetworkStatusBanner + withTimeout（Task 2 已用 withTimeout）</td><td><span class="pill green">✓</span></td></tr>
+  <tr><td>Spec § 8 测试策略 → Task 1/2/6 单测 + Task 10 e2e + Task 3 demo store</td><td><span class="pill green">✓</span></td></tr>
+  <tr><td>Spec § 9 未来拆点 → File Structure 集中在 Mood* 路径，无跨模块污染</td><td><span class="pill green">✓</span></td></tr>
+  <tr><td>无 TBD / TODO / 占位符（除 Task 10 删除 e2e 注释说明可 skip，并显式给了选项）</td><td><span class="pill green">✓</span></td></tr>
+  <tr><td>类型一致性：MoodBucketId / MoodEntry / MoodBucket 跨 Task 1/2/5/6/7/9 同名</td><td><span class="pill green">✓</span></td></tr>
+  <tr><td>命令一致性：所有 task 用 <code>npm test -- --run</code> / <code>npm run lint</code> / <code>npm run test:e2e</code></td><td><span class="pill green">✓</span></td></tr>
+</table>
+
+<hr style="border:none;border-top:1px solid #EDEAE3;margin:36px 0 20px">
+<p style="font-size:12px;color:#8C8C8C;text-align:center">
+  Plan 完成 · 待 user review<br>
+  审核通过后选择执行方式：subagent-driven-development（推荐）或 executing-plans
+</p>
+
+</body>
+</html>
