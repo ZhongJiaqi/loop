@@ -51,7 +51,7 @@ export default function MoodPickerSheet({
   // 让 fixed inset-0 不再 anchor 到 viewport。Portal 到 body 跳出影响。
   return createPortal(
     <div
-      className="fixed inset-0 z-50 bg-black/30"
+      className="fixed inset-0 z-50 bg-[#F9F8F6]/75 backdrop-blur-sm"
       onClick={handleClose}
       role="dialog"
       aria-modal="true"
