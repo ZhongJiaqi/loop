@@ -22,23 +22,43 @@ interface MoodViewProps {
 export default function MoodView({ store }: MoodViewProps) {
   const [pickerOpen, setPickerOpen] = useState(false);
   const [editing, setEditing] = useState<MoodEntry | null>(null);
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
   const groups = groupEntriesByDay(store.entries);
   const today = new Date();
 
+  // handleDone 之前没 try/catch，store.addMood/updateMood 一旦抛错
+  // （Firestore rules 拒绝 / 网络断 / 写入超时），await 直接抛，
+  // setPickerOpen(false) 不执行 → sheet 不关 → 用户感觉「点 Done 没反应」。
+  // 这里 try/catch 三件事：保留 sheet 打开、把错误文案显示给用户、避免静默吞错。
   const handleDone = async (bucket: MoodBucketId, words: string[]) => {
-    if (editing && store.updateMood) {
-      await store.updateMood(editing.id, { bucket, words });
-    } else {
-      await store.addMood(bucket, words);
+    setSaving(true);
+    setError(null);
+    try {
+      if (editing && store.updateMood) {
+        await store.updateMood(editing.id, { bucket, words });
+      } else {
+        await store.addMood(bucket, words);
+      }
+      setPickerOpen(false);
+      setEditing(null);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : String(e));
+    } finally {
+      setSaving(false);
     }
-    setPickerOpen(false);
-    setEditing(null);
   };
 
   const handleEdit = (entry: MoodEntry) => {
     setEditing(entry);
     setPickerOpen(true);
+  };
+
+  const handleClose = () => {
+    setPickerOpen(false);
+    setEditing(null);
+    setError(null);
   };
 
   return (
@@ -96,11 +116,10 @@ export default function MoodView({ store }: MoodViewProps) {
         open={pickerOpen}
         initialBucket={editing?.bucket}
         initialWords={editing?.words}
-        onClose={() => {
-          setPickerOpen(false);
-          setEditing(null);
-        }}
+        onClose={handleClose}
         onDone={handleDone}
+        saving={saving}
+        error={error}
       />
     </div>
   );

@@ -10,6 +10,10 @@ interface MoodPickerSheetProps {
   initialWords?: string[];
   onClose: () => void;
   onDone: (bucket: MoodBucketId, words: string[]) => void;
+  /** 保存中（写 Firestore）。父组件管，Sheet 按钮显示 spinner 文案。 */
+  saving?: boolean;
+  /** 写入失败时的错误文案（如 Firestore 拒绝 / 网络断）。null 表示无错误。 */
+  error?: string | null;
 }
 
 export default function MoodPickerSheet({
@@ -18,6 +22,8 @@ export default function MoodPickerSheet({
   initialWords,
   onClose,
   onDone,
+  saving = false,
+  error = null,
 }: MoodPickerSheetProps) {
   const [bucket, setBucket] = useState<MoodBucketId | null>(initialBucket ?? null);
   const [words, setWords] = useState<string[]>(initialWords ?? []);
@@ -31,11 +37,13 @@ export default function MoodPickerSheet({
   }, [open, initialBucket, initialWords]);
 
   const handleClose = () => {
+    if (saving) return; // 写入进行中禁止关闭，避免半状态
     onClose();
   };
 
   const handleDone = () => {
     if (!bucket) return;
+    if (saving) return;
     onDone(bucket, words);
   };
 
@@ -120,11 +128,20 @@ export default function MoodPickerSheet({
                 </div>
                 <button
                   onClick={handleDone}
-                  className="text-[11px] uppercase tracking-[0.2em] text-[#A09E9A] hover:text-[#2C2C2C] transition-colors"
+                  disabled={saving}
+                  className="text-[11px] uppercase tracking-[0.2em] text-[#A09E9A] hover:text-[#2C2C2C] transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                 >
-                  Done
+                  {saving ? 'Saving…' : 'Done'}
                 </button>
               </div>
+              {error && (
+                <p
+                  className="text-[11px] text-red-500 mb-2 break-words"
+                  role="alert"
+                >
+                  保存失败：{error}
+                </p>
+              )}
 
               <div className="flex flex-wrap gap-1.5 pb-2">
                 {activeBucket.words.map((w) => {
