@@ -1,0 +1,497 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Mood — Loop 觉察空间设计文档</title>
+<style>
+  * { box-sizing: border-box; }
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, "PingFang SC", system-ui, sans-serif;
+    background: #FBFAF7;
+    color: #2C2C2C;
+    line-height: 1.65;
+    max-width: 900px;
+    margin: 0 auto;
+    padding: 32px 28px 80px;
+    -webkit-font-smoothing: antialiased;
+  }
+  h1 { font-size: 28px; font-weight: 600; margin: 0 0 4px; letter-spacing: -0.01em; }
+  h2 { font-size: 20px; font-weight: 600; margin: 36px 0 12px; padding-top: 24px; border-top: 1px solid #EDEAE3; letter-spacing: -0.01em; }
+  h3 { font-size: 15px; font-weight: 600; margin: 20px 0 8px; color: #4A4A4A; }
+  h2:first-of-type { border-top: none; padding-top: 0; }
+  p { margin: 8px 0; }
+  code, pre {
+    font-family: "SF Mono", "JetBrains Mono", Menlo, monospace;
+    font-size: 13px;
+  }
+  code { background: #F0EEE8; padding: 1px 5px; border-radius: 4px; }
+  pre {
+    background: #2C2C2C; color: #E8E5DE;
+    padding: 14px 16px; border-radius: 8px;
+    overflow-x: auto; line-height: 1.5;
+  }
+  pre code { background: transparent; color: inherit; padding: 0; }
+  .meta {
+    font-size: 12px; color: #8C8C8C; margin-bottom: 28px;
+    display: flex; gap: 16px; flex-wrap: wrap;
+  }
+  .meta span { display: inline-flex; gap: 4px; }
+  .meta strong { color: #4A4A4A; font-weight: 500; }
+  blockquote {
+    margin: 14px 0; padding: 10px 16px;
+    border-left: 3px solid #C5B358;
+    background: #FAF7EE;
+    color: #4A4A4A; font-size: 14px;
+  }
+  table { border-collapse: collapse; width: 100%; margin: 12px 0; font-size: 14px; }
+  th, td { padding: 8px 10px; text-align: left; border-bottom: 1px solid #EDEAE3; vertical-align: top; }
+  th { background: #F4F2EC; font-weight: 600; font-size: 13px; }
+  ul, ol { padding-left: 22px; }
+  li { margin: 4px 0; }
+  .pill {
+    display: inline-block; padding: 2px 8px; border-radius: 10px;
+    background: #F0EEE8; color: #4A4A4A; font-size: 12px;
+    margin-right: 4px;
+  }
+  .pill.green { background: #E5EBE3; color: #4A6647; }
+  .pill.red { background: #F2E2DC; color: #7A3B2A; }
+
+  /* Mockup 嵌入 */
+  .mockups { display: flex; gap: 20px; flex-wrap: wrap; margin: 16px 0 4px; }
+  .phone {
+    width: 270px; background: #F9F8F6; border-radius: 22px;
+    padding: 14px 12px; box-shadow: 0 3px 16px rgba(0,0,0,0.07);
+    flex-shrink: 0; position: relative; min-height: 360px;
+  }
+  .phone-title {
+    font-size: 10px; letter-spacing: 0.2em; color: #8C8C8C;
+    text-transform: uppercase; text-align: center; margin-bottom: 4px;
+  }
+  .phone-sub { font-size: 10px; color: #B0AEA9; text-align: center; margin-bottom: 12px; }
+  .phone-caption { font-size: 12px; color: #8C8C8C; text-align: center; margin-top: 8px; }
+  .add-btn { width: 100%; padding: 8px; background: #FFFFFF; border: 1px dashed #C9C6BE; border-radius: 8px; text-align: center; font-size: 12px; color: #6B6864; margin-bottom: 14px; }
+
+  /* 9 桶颜色（霍金斯能量低→高 = 冷暗→温亮） */
+  .c-bukar { background: #5B4F6E; }
+  .c-bitter { background: #5C6A82; }
+  .c-fear  { background: #6B7A8F; }
+  .c-greed { background: #8C7656; }
+  .c-anger { background: #B5654E; }
+  .c-pride { background: #B89860; }
+  .c-brave { background: #7DA286; }
+  .c-accept{ background: #9BB8A5; }
+  .c-peace { background: #C5D2D8; }
+
+  /* 3x3 网格 */
+  .bucket-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px; }
+  .bucket-cell {
+    aspect-ratio: 1/1; border-radius: 10px; padding: 8px 6px;
+    display: flex; flex-direction: column; justify-content: space-between;
+    background: #FFFFFF; border: 1px solid #EDEAE3;
+  }
+  .cell-dot { width: 8px; height: 8px; border-radius: 50%; }
+  .cell-label { font-size: 11px; color: #2C2C2C; font-weight: 500; line-height: 1.2; }
+
+  /* Sheet */
+  .bg-grid-faded { display: grid; grid-template-columns: repeat(3, 1fr); gap: 5px; opacity: 0.3; }
+  .bg-cell { aspect-ratio: 1/1; border-radius: 7px; background: #FFFFFF; border: 1px solid #EDEAE3; display:flex;align-items:center;justify-content:center;font-size:9px;color:#2C2C2C; }
+  .sheet {
+    position: absolute; left: 8px; right: 8px; bottom: 8px;
+    background: #FFFFFF; border-radius: 16px 16px 10px 10px;
+    box-shadow: 0 -4px 14px rgba(0,0,0,0.08);
+    padding: 10px 12px 14px; border: 1px solid #EDEAE3;
+  }
+  .sheet-handle { width: 32px; height: 3px; border-radius: 2px; background: #D8D5CD; margin: 0 auto 8px; }
+  .sheet-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 10px; }
+  .sheet-bucket { display: flex; align-items: center; gap: 6px; font-size: 12px; font-weight: 600; }
+  .sheet-dot { width: 9px; height: 9px; border-radius: 50%; }
+  .sheet-done { font-size: 11px; padding: 3px 9px; background: #F0EEE8; border-radius: 10px; }
+  .cloud { display: flex; flex-wrap: wrap; gap: 4px; }
+  .chip { font-size: 10px; padding: 3px 7px; border-radius: 10px; background: #F4F2EC; color: #2C2C2C; }
+  .chip.on { background: #6B7A8F; color: #FFFFFF; }
+
+  /* Feed */
+  .day-section { margin-bottom: 14px; }
+  .day-section-head {
+    display: flex; align-items: baseline; justify-content: space-between;
+    margin-bottom: 6px; padding-bottom: 3px;
+    border-bottom: 1px solid #EDEAE3;
+  }
+  .day-date { font-size: 12px; font-weight: 600; }
+  .day-count { font-size: 9px; color: #B0AEA9; }
+  .entry-row { display: flex; align-items: center; gap: 6px; padding: 5px 0; font-size: 11px; }
+  .entry-time { color: #B0AEA9; font-size: 9px; min-width: 32px; }
+  .entry-dot { width: 7px; height: 7px; border-radius: 50%; flex-shrink: 0; }
+  .entry-bucket { font-weight: 500; min-width: 52px; }
+  .entry-words { color: #8C8C8C; font-size: 10px; flex: 1; }
+</style>
+</head>
+<body>
+
+<h1>Mood — Loop 觉察空间设计文档</h1>
+<div class="meta">
+  <span><strong>Spec</strong>: 2026-06-08-mood-design.html</span>
+  <span><strong>所属项目</strong>: loop（暂存于其中，未来可独立拆为「看见」）</span>
+  <span><strong>状态</strong>: <span class="pill green">待 user review</span></span>
+  <span><strong>下一步</strong>: writing-plans 出 implementation plan</span>
+</div>
+
+<blockquote>
+"情绪和感受被看见之后，它就会消失。希望我能通过情绪的记录，更熟练地去感受、看见自己的感受、识别自己的感受，定期去回顾我感受的变化。"
+<br>— 用户 brainstorm 原话（2026-06-08）
+</blockquote>
+
+<h2>§ 0 产品定位 · 为什么集成进 loop 但与 loop 主旋律隔离</h2>
+
+<p><strong>核心需求</strong>：用户作为 INTJ，过去通过过度分析逃避感受。需要一个能"停下来命名感受、看见、让它过去"的空间。</p>
+
+<p><strong>张力</strong>：loop 的语义场是「<em>做、塑造、推进</em>」（Habits → Identity → Hall）；觉察空间需要的语义场是「<em>停、看、不评价</em>」。两套哲学若混居，互相稀释。</p>
+
+<p><strong>当前阶段决策</strong>：先在 loop 内做 MVP 体验（验证使用频率、使用场景、想要什么），<strong>未来拆产品时无痛搬走</strong>。功能层面命名 <code>Mood</code>（中性功能词），未来独立产品启用「看见」+「不分析，只看见」品牌叙事。</p>
+
+<p><strong>不做的事</strong>（明确边界）：</p>
+<ul>
+  <li>不算「今日完成度」</li>
+  <li>不触发 confetti / streak / Hall</li>
+  <li>不跟 Affirmation / Habit 共用组件</li>
+  <li>不显示在 Today 的 affirmation/habit list 旁边</li>
+  <li>不加 note / 触发器关联 / 强度评级 — 任何一个都开过度分析回路的口子</li>
+</ul>
+
+<h2>§ 1 架构与文件组织</h2>
+
+<p><strong>可拆性原则</strong>：所有 Mood 相关代码集中在自有模块，与 Affirmation/Habit 体系零耦合。未来拆产品 = 整组复制走。</p>
+
+<pre><code>src/
+├── components/
+│   ├── MoodView.tsx              # Mood tab 主视图（按天极简流水）
+│   ├── MoodPickerSheet.tsx       # 选桶 + 选词的 bottom sheet
+│   └── MoodEntryRow.tsx          # 单条记录行
+├── lib/
+│   └── moods.ts                  # 9 桶 canonical 数据（颜色 / 桶名 / 动机 / 词典）
+├── types.ts                      # 追加 MoodBucketId / MoodEntry / MoodBucket
+├── useMoodStore.ts               # 独立 hook，与 useStore.ts 解耦
+└── App.tsx                       # 加第 4 tab（4 处轻量编辑）
+</code></pre>
+
+<p><strong>"零复用"的边界</strong>：</p>
+<ul>
+  <li><strong>展示型组件</strong>（list / row / section / card / button 视觉）— 一律新写 Mood 自己的，<strong>不</strong>沿用 Affirmation/Habit 的视觉组件。这是可拆性的核心保障。</li>
+  <li><strong>手势 / 基础设施型组件</strong>（<code>SwipeActions</code> 的 swipe-to-reveal、<code>NetworkStatusBanner</code>、<code>withTimeout</code>）— <strong>可复用</strong>。这些是跨业务的通用工具，未来拆产品时一并复制即可，不构成耦合。</li>
+</ul>
+
+<h2>§ 2 数据模型</h2>
+
+<pre><code>// types.ts 追加
+export type MoodBucketId =
+  | 'bukar'   // 万念俱灰
+  | 'bitter'  // 悲苦
+  | 'fear'    // 恐惧
+  | 'greed'   // 贪求
+  | 'anger'   // 愤怒
+  | 'pride'   // 自尊自傲
+  | 'brave'   // 无畏
+  | 'accept'  // 接纳
+  | 'peace';  // 平和
+
+export interface MoodEntry {
+  id: string;                // Firestore doc id（auto）
+  userId: string;
+  bucket: MoodBucketId;      // 必填，9 选 1
+  words: string[];           // 选的细分词，可为空数组（只记桶）
+  createdAt: string;         // ISO 时间戳
+  updatedAt?: string;        // 仅编辑后才有
+}</code></pre>
+
+<p><strong>Firestore 集合</strong>：<code>users/{uid}/moods/{moodId}</code>，与 <code>microHabits</code> / <code>tasks</code> 平级互不依赖。</p>
+
+<p><strong>security rules</strong>（追加到 <code>firestore.rules</code>）：</p>
+
+<pre><code>match /users/{userId}/moods/{moodId} {
+  allow read, delete: if isOwner(userId);
+  allow create: if isOwner(userId) &&
+    request.resource.data.userId == userId &&
+    request.resource.data.bucket in ['bukar','bitter','fear','greed','anger','pride','brave','accept','peace'] &&
+    request.resource.data.words is list;
+  allow update: if isOwner(userId) &&
+    request.resource.data.userId == resource.data.userId; // userId 不可变
+}</code></pre>
+
+<h2>§ 3 9 桶 canonical 数据（src/lib/moods.ts）</h2>
+
+<p>这套数据是<strong>唯一真理源</strong>。词典按那张霍金斯能量层级表 OCR 整理，每桶用全集（30–100 个/桶）。MVP 不砍词——砍掉就破坏了「找到精准那个词」的命名训练核心价值。</p>
+
+<pre><code>export interface MoodBucket {
+  id: MoodBucketId;
+  zhName: string;        // "恐惧"
+  motive: string;        // "想安全稳妥"（底层动机，对应图顶层）
+  color: string;         // hex
+  words: readonly string[];
+}
+
+export const MOOD_BUCKETS: readonly MoodBucket[] = [
+  { id: 'bukar',  zhName: '万念俱灰', motive: '想生存',     color: '#5B4F6E', words: [...] },
+  { id: 'bitter', zhName: '悲苦',     motive: '想被认同',   color: '#5C6A82', words: [...] },
+  { id: 'fear',   zhName: '恐惧',     motive: '想安全稳妥', color: '#6B7A8F', words: [...] },
+  { id: 'greed',  zhName: '贪求',     motive: '想控制',     color: '#8C7656', words: [...] },
+  { id: 'anger',  zhName: '愤怒',     motive: '想控制',     color: '#B5654E', words: [...] },
+  { id: 'pride',  zhName: '自尊自傲', motive: '想被认同',   color: '#B89860', words: [...] },
+  { id: 'brave',  zhName: '无畏',     motive: '—',          color: '#7DA286', words: [...] },
+  { id: 'accept', zhName: '接纳',     motive: '—',          color: '#9BB8A5', words: [...] },
+  { id: 'peace',  zhName: '平和',     motive: '—',          color: '#C5D2D8', words: [...] },
+] as const;
+
+export function bucketById(id: MoodBucketId): MoodBucket {
+  return MOOD_BUCKETS.find(b =&gt; b.id === id)!;
+}</code></pre>
+
+<p><strong>颜色策略</strong>：低能量 → 高能量 = 冷暗紫灰 → 温亮天蓝。明确避开 loop 的米色 / 金色（loop 的"庆祝色"），让 Mood 自成视觉区。</p>
+
+<h2>§ 4 UI 流程 · 三个组件 + 关键 mockup</h2>
+
+<h3>4.1 选桶 — 3×3 网格</h3>
+<div class="mockups">
+  <div class="phone">
+    <div class="phone-title">MOOD</div>
+    <div class="phone-sub">此刻你怎么样？</div>
+    <div class="bucket-grid">
+      <div class="bucket-cell"><div class="cell-dot c-bukar"></div><div class="cell-label">万念俱灰</div></div>
+      <div class="bucket-cell"><div class="cell-dot c-bitter"></div><div class="cell-label">悲苦</div></div>
+      <div class="bucket-cell"><div class="cell-dot c-fear"></div><div class="cell-label">恐惧</div></div>
+      <div class="bucket-cell"><div class="cell-dot c-greed"></div><div class="cell-label">贪求</div></div>
+      <div class="bucket-cell"><div class="cell-dot c-anger"></div><div class="cell-label">愤怒</div></div>
+      <div class="bucket-cell"><div class="cell-dot c-pride"></div><div class="cell-label">自尊自傲</div></div>
+      <div class="bucket-cell"><div class="cell-dot c-brave"></div><div class="cell-label">无畏</div></div>
+      <div class="bucket-cell"><div class="cell-dot c-accept"></div><div class="cell-label">接纳</div></div>
+      <div class="bucket-cell"><div class="cell-dot c-peace"></div><div class="cell-label">平和</div></div>
+    </div>
+    <div class="phone-caption">单屏 9 桶，左上深紫灰 → 右下浅天蓝形成能量谱</div>
+  </div>
+</div>
+
+<h3>4.2 选词 — bottom sheet + 标签云</h3>
+<div class="mockups">
+  <div class="phone">
+    <div class="phone-title">MOOD</div>
+    <div class="bg-grid-faded" style="margin-top:6px">
+      <div class="bg-cell">万念俱灰</div>
+      <div class="bg-cell">悲苦</div>
+      <div class="bg-cell" style="background:#6B7A8F;color:#fff;border-color:#6B7A8F">恐惧</div>
+      <div class="bg-cell">贪求</div>
+      <div class="bg-cell">愤怒</div>
+      <div class="bg-cell">自尊自傲</div>
+      <div class="bg-cell">无畏</div>
+      <div class="bg-cell">接纳</div>
+      <div class="bg-cell">平和</div>
+    </div>
+    <div class="sheet">
+      <div class="sheet-handle"></div>
+      <div class="sheet-header">
+        <div class="sheet-bucket"><span class="sheet-dot c-fear"></span>恐惧</div>
+        <div class="sheet-done">完成</div>
+      </div>
+      <div class="cloud">
+        <span class="chip">焦虑</span><span class="chip">不安</span>
+        <span class="chip on">小心谨慎</span><span class="chip">胆小怯懦</span>
+        <span class="chip">自我防卫</span><span class="chip">怀疑</span>
+        <span class="chip">惧怕</span><span class="chip">尴尬</span>
+        <span class="chip">逃避</span><span class="chip">惊骇</span>
+        <span class="chip">心碎</span><span class="chip">无助</span>
+        <span class="chip on">多疑</span><span class="chip">紧张</span>
+        <span class="chip">…</span>
+      </div>
+    </div>
+    <div class="phone-caption">背景 9 桶淡化保留（你正站在"恐惧"里），sheet 弹起多选词，右上"完成"= 保存</div>
+  </div>
+</div>
+
+<h3>4.3 回顾 — 按天极简流水</h3>
+<div class="mockups">
+  <div class="phone">
+    <div class="phone-title">MOOD</div>
+    <div class="phone-sub">这些天你的样子</div>
+    <div class="add-btn">+ 此刻你怎么样？</div>
+    <div class="day-section">
+      <div class="day-section-head"><div class="day-date">今天 · 6/8 Sat</div><div class="day-count">2 次</div></div>
+      <div class="entry-row"><div class="entry-time">14:32</div><div class="entry-dot c-fear"></div><div class="entry-bucket">恐惧</div><div class="entry-words">小心谨慎 · 多疑</div></div>
+      <div class="entry-row"><div class="entry-time">11:08</div><div class="entry-dot c-accept"></div><div class="entry-bucket">接纳</div><div class="entry-words">平衡</div></div>
+    </div>
+    <div class="day-section">
+      <div class="day-section-head"><div class="day-date">昨天 · 6/7 Fri</div><div class="day-count">3 次</div></div>
+      <div class="entry-row"><div class="entry-time">22:15</div><div class="entry-dot c-peace"></div><div class="entry-bucket">平和</div><div class="entry-words">安静</div></div>
+      <div class="entry-row"><div class="entry-time">17:40</div><div class="entry-dot c-anger"></div><div class="entry-bucket">愤怒</div><div class="entry-words">不耐烦</div></div>
+      <div class="entry-row"><div class="entry-time">09:20</div><div class="entry-dot c-pride"></div><div class="entry-bucket">自尊</div><div class="entry-words">自信</div></div>
+    </div>
+    <div class="phone-caption">条目 swipe-left → 编辑/删除（复用 SwipeActions 手势逻辑）</div>
+  </div>
+</div>
+
+<h3>4.4 组件职责</h3>
+<table>
+  <tr><th>组件</th><th>职责</th><th>对外依赖</th></tr>
+  <tr><td><code>MoodView</code></td><td>tab 主视图，渲染按天分组的流水 + "+ 此刻"按钮 + 空态</td><td><code>useMoodStore</code> + <code>MoodPickerSheet</code> + <code>MoodEntryRow</code></td></tr>
+  <tr><td><code>MoodPickerSheet</code></td><td>两步交互：3×3 桶网格 → 点桶进 sheet 选词 → "完成" callback 返回 <code>{ bucket, words }</code></td><td><code>MOOD_BUCKETS</code></td></tr>
+  <tr><td><code>MoodEntryRow</code></td><td>单条记录展示（时间·色点·桶·词），支持点击进入编辑态</td><td><code>bucketById</code> + 现有 <code>SwipeActions</code></td></tr>
+</table>
+
+<h3>4.5 日期格式约定</h3>
+<ul>
+  <li>当天 → "今天 · M/D Ddd"（如 "今天 · 6/8 Sat"）</li>
+  <li>昨天 → "昨天 · M/D Ddd"</li>
+  <li>前天 → "前天 · M/D Ddd"</li>
+  <li>4+ 天前 → "M/D Ddd"（不带相对前缀）</li>
+  <li>跨年时间戳 → "YYYY/M/D Ddd"</li>
+  <li>时间格式 → "HH:mm"（24 小时制，与 loop 现有 <code>date-fns</code> format 风格一致）</li>
+</ul>
+
+<h2>§ 5 状态管理 · useMoodStore</h2>
+
+<p>独立 hook，<strong>不并入</strong> <code>useStore.ts</code>。避免污染现有的 task 创建逻辑（2026-05-22 修过的 race condition 不能再碰）。</p>
+
+<pre><code>export function useMoodStore(userId: string | null) {
+  const [entries, setEntries] = useState&lt;MoodEntry[]&gt;([]);
+  const [loaded, setLoaded] = useState(false);
+
+  useEffect(() =&gt; {
+    if (!userId) return;
+    const q = query(
+      collection(db, `users/${userId}/moods`),
+      orderBy('createdAt', 'desc')
+    );
+    return onSnapshot(q, (snap) =&gt; {
+      setEntries(snap.docs.map(d =&gt; ({ id: d.id, ...d.data() } as MoodEntry)));
+      setLoaded(true);
+    });
+  }, [userId]);
+
+  const addMood = async (bucket: MoodBucketId, words: string[]) =&gt; {
+    if (!userId) return;
+    const ref = doc(collection(db, `users/${userId}/moods`));
+    await withTimeout(
+      setDoc(ref, { userId, bucket, words, createdAt: new Date().toISOString() }),
+      10000, 'addMood'
+    );
+  };
+
+  const updateMood = async (id: string, patch: Partial&lt;Pick&lt;MoodEntry,'bucket'|'words'&gt;&gt;) =&gt; {...};
+  const deleteMood = async (id: string) =&gt; {...};
+
+  return { entries, loaded, addMood, updateMood, deleteMood };
+}</code></pre>
+
+<p><code>App.tsx</code> 同时持有两个 hook：<code>useStore(uid)</code> 喂 Today/Practice/History，<code>useMoodStore(uid)</code> 喂 MoodView。两套数据流彼此不知道。</p>
+
+<h2>§ 6 底部 nav 调整</h2>
+
+<p>3 tab → 4 tab，顺序确定为 <strong><code>Today · Practice · Mood · History</code></strong>。</p>
+
+<table>
+  <tr><th>tab</th><th>icon (Lucide)</th><th>label</th></tr>
+  <tr><td>Today</td><td><code>Calendar</code>（不变）</td><td>TODAY</td></tr>
+  <tr><td>Practice</td><td><code>List</code>（不变）</td><td>PRACTICE</td></tr>
+  <tr><td><strong>Mood（新）</strong></td><td><code>Eye</code> ⭐ <em>对位未来"看见"产品名的伏笔</em></td><td>MOOD</td></tr>
+  <tr><td>History</td><td><code>Clock</code>（不变）</td><td>HISTORY</td></tr>
+</table>
+
+<p>Mood 夹中间不放最右——避免视觉上跟 History 粘连（History 是 affirmation/habit 的历史，Mood 是独立时间线）。</p>
+
+<h2>§ 7 错误处理 + 离线</h2>
+
+<ul>
+  <li><strong>网络断</strong>：现有 <code>NetworkStatusBanner</code> 自动接管显示（Mood 共享底层基础设施）</li>
+  <li><strong>离线读写</strong>：Firestore <code>persistentLocalCache</code> 让 Mood 离线可读写，回线自动 sync</li>
+  <li><strong>超时</strong>：<code>addMood / updateMood / deleteMood</code> 全部 <code>withTimeout(10000)</code> 包装，沿用现有 <code>src/lib/timeout.ts</code></li>
+  <li><strong>用户兜底</strong>：UI 用 <code>try/finally</code> 保证 saving 状态总会复位</li>
+</ul>
+
+<h2>§ 8 测试策略</h2>
+
+<h3>8.1 纯函数单测 · tests/moodPlan.test.ts</h3>
+<ul>
+  <li><code>bucketById</code> lookup 正确返回</li>
+  <li><code>addMood</code> payload 构造正确（含 userId / createdAt / 空 words 数组）</li>
+  <li>时间分组：「今天 / 昨天 / 前天 / X 月 X 日」分组逻辑（含跨月、跨年边界）</li>
+  <li>计数：每天 entry 数正确（含 0 / 1 / 多）</li>
+</ul>
+
+<h3>8.2 e2e demo flow · tests/e2e/mood.spec.ts</h3>
+<ol>
+  <li>demo 模式打开 → 切到 Mood tab</li>
+  <li>看到空态文案 "还没有记录。+ 此刻你怎么样？"（按钮在文案下方）</li>
+  <li>点 "+" → 3×3 网格出现</li>
+  <li>点 "恐惧" 桶 → bottom sheet 弹起，背景 9 桶淡化、"恐惧" cell 高亮</li>
+  <li>点 2 个词（如 "焦虑" / "小心谨慎"）→ chip 变深色高亮</li>
+  <li>点 "完成" → sheet 关闭，Mood feed 出现 1 条 "今天 · X:XX · 恐惧 · 焦虑 · 小心谨慎"</li>
+  <li>swipe-left 该条 → 删除 → 回到空态</li>
+  <li>0 console error 守护</li>
+</ol>
+
+<h3>8.3 demo store 扩展</h3>
+<p><code>useDemoStore.ts</code> 加 <code>moods: MoodEntry[]</code> 字段 + <code>addMood / updateMood / deleteMood</code> in-memory 实现，与 microHabits/tasks 同模式。</p>
+
+<h2>§ 9 未来拆产品的拆点（write-only 留档）</h2>
+
+<p><strong>拆出去时只需搬</strong>：</p>
+<ul>
+  <li><code>src/components/Mood*.tsx</code></li>
+  <li><code>src/lib/moods.ts</code></li>
+  <li><code>src/useMoodStore.ts</code></li>
+  <li><code>types.ts</code> 中 <code>MoodBucketId / MoodEntry / MoodBucket</code> 类型块</li>
+  <li>Firestore 集合 <code>users/{uid}/moods/</code> 数据（user-scoped，搬迁简单）</li>
+  <li><code>firestore.rules</code> 的 moods match block</li>
+</ul>
+
+<p><strong>不依赖 loop 的</strong>：brand、confetti、Hall、streak、tagline、莫比乌斯叙事、米色金色配色。</p>
+
+<p><strong>共享的基础设施（拆出去也会带走 / 复刻）</strong>：Firebase Auth（同账号自动登录）、<code>NetworkStatusBanner</code>、<code>SwipeActions</code>、<code>withTimeout</code> — 这些都属于通用基础工具。</p>
+
+<h2>§ 10 实施 sprint 拆分（建议）</h2>
+
+<p>给 writing-plans 一个参考维度（最终的细分由 plan 决定）：</p>
+
+<table>
+  <tr><th>Sprint</th><th>交付</th><th>验收</th></tr>
+  <tr><td>S1 · 数据层</td><td>types + moods.ts canonical 数据 + useMoodStore + firestore.rules</td><td>单测：addMood/updateMood/deleteMood payload + bucketById lookup 全过</td></tr>
+  <tr><td>S2 · UI Pickers</td><td>MoodPickerSheet（3×3 + sheet） + MOOD_BUCKETS 颜色应用</td><td>demo 模式手动验：点桶 → sheet 弹起 → 选词 → "完成"回调</td></tr>
+  <tr><td>S3 · 主视图 + nav</td><td>MoodView（按天分组流水 + 空态） + App.tsx 4-tab nav</td><td>demo 模式：切 tab + 看到自己刚记的 entry</td></tr>
+  <tr><td>S4 · 编辑删除 + e2e</td><td>MoodEntryRow swipe-left → 编辑/删除 + e2e mood.spec.ts</td><td>17 e2e → 至少 +5 个 Mood case 全过 + 0 console error</td></tr>
+</table>
+
+<h2>§ 11 Spec self-review checklist</h2>
+
+<table>
+  <tr><th>检查项</th><th>状态</th></tr>
+  <tr><td>无 TBD / TODO / 占位符</td><td><span class="pill green">✓</span></td></tr>
+  <tr><td>内部无矛盾（架构 vs 组件 vs 数据流一致）</td><td><span class="pill green">✓</span></td></tr>
+  <tr><td>scope 聚焦单 plan 内可完成（无需拆 spec）</td><td><span class="pill green">✓ 4 sprint 内可完成</span></td></tr>
+  <tr><td>无歧义（每个需求只有一种解读）</td><td><span class="pill green">✓</span></td></tr>
+  <tr><td>MVP 边界明确（哪些不做写在 § 0）</td><td><span class="pill green">✓</span></td></tr>
+  <tr><td>未来拆产品路径已留档（§ 9）</td><td><span class="pill green">✓</span></td></tr>
+</table>
+
+<h2>§ 12 已确认的决策追溯（防止后期反悔）</h2>
+
+<table>
+  <tr><th>决策</th><th>选项</th><th>用户确认</th></tr>
+  <tr><td>独立产品 vs 集成</td><td><strong>集成进 loop（MVP），未来可拆</strong></td><td>✓</td></tr>
+  <tr><td>记录用途</td><td>自我觉察命名 + 长期回顾感受变化</td><td>✓</td></tr>
+  <tr><td>粒度</td><td>两层（先桶 → 再选词，词可跳过）</td><td>✓</td></tr>
+  <tr><td>频率</td><td>一天任意多次</td><td>✓</td></tr>
+  <tr><td>入口</td><td>第 4 个 tab，label = Mood</td><td>✓</td></tr>
+  <tr><td>选桶 UI</td><td>3×3 网格</td><td>✓</td></tr>
+  <tr><td>选词 UI</td><td>底部 sheet + 标签云</td><td>✓</td></tr>
+  <tr><td>主视图</td><td>按天极简流水</td><td>✓</td></tr>
+  <tr><td>MVP scope</td><td>记录 + 编辑 + 删除（无 note / 无统计）</td><td>✓</td></tr>
+  <tr><td>词典</td><td>按那张图全集，不砍</td><td>✓</td></tr>
+  <tr><td>nav 顺序</td><td>Today · Practice · Mood · History</td><td>✓</td></tr>
+</table>
+
+<hr style="border:none;border-top:1px solid #EDEAE3;margin:36px 0 20px">
+<p style="font-size:12px;color:#8C8C8C;text-align:center">
+  Spec 完成 · 待 user review<br>
+  审核通过后调用 superpowers:writing-plans 出 implementation plan
+</p>
+
+</body>
+</html>
