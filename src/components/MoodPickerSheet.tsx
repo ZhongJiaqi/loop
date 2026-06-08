@@ -63,32 +63,37 @@ export default function MoodPickerSheet({
       >
         <div className="w-9 h-1 rounded-full bg-[#D8D5CD] mx-auto mb-3" />
 
-        <div className="text-[11px] uppercase tracking-[0.2em] text-[#8C8C8C] text-center mb-1">
-          MOOD
-        </div>
-        <div className="text-sm text-[#2C2C2C] text-center mb-4">看见此刻的感受</div>
+        <p className="text-xs text-[#8C8C8C] leading-relaxed font-light tracking-wide italic text-center mb-4">
+          Notice what's here.
+        </p>
 
-        {/* Step 1: 3×3 网格 */}
-        <div className="grid grid-cols-3 gap-2 mb-3">
+        {/* Step 1: 列表式 9 桶 — 跟 loop 编辑/极简调性一致 */}
+        <div className="border-t border-[#EDEAE3] mb-3">
           {MOOD_BUCKETS.map((b) => {
             const isActive = bucket === b.id;
             return (
               <button
                 key={b.id}
                 onClick={() => setBucket(b.id)}
-                className={`aspect-square rounded-xl p-2 flex flex-col justify-between border transition-colors ${
-                  isActive ? 'border-[#2C2C2C] bg-white' : 'border-[#EDEAE3] bg-white opacity-90'
+                className={`w-full flex items-center gap-3 py-3 px-1 border-b border-[#EDEAE3] text-left transition-colors ${
+                  isActive ? 'bg-[#F4F2EC]' : 'hover:bg-[#FAF7F0]'
                 }`}
                 aria-pressed={isActive}
                 aria-label={`看见 ${b.zhName}`}
               >
                 <span
-                  className="w-2.5 h-2.5 rounded-full"
+                  className="w-2 h-2 rounded-full shrink-0"
                   style={{ background: b.color }}
                 />
-                <span className="text-[12px] text-[#2C2C2C] font-medium text-left leading-tight">
+                <span
+                  className={`flex-1 text-base text-[#2C2C2C] ${isActive ? 'font-medium' : ''}`}
+                  style={{ fontFamily: 'ui-serif, Georgia, "Songti SC", "宋体", serif' }}
+                >
                   {b.zhName}
                 </span>
+                {b.motive !== '—' && (
+                  <span className="text-[10px] text-[#A09E9A] italic">{b.motive}</span>
+                )}
               </button>
             );
           })}

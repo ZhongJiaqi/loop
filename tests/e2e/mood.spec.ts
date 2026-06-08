@@ -92,16 +92,16 @@ test.describe('Mood tab (demo flow)', () => {
     });
     expect(parentIsBody).toBe(true);
 
-    // 2. 9 个桶 cell 全部在 viewport 内（top >= 0 && bottom <= viewport.h）
+    // 2. 9 个桶按钮全部在 viewport 内（top >= 0 && bottom <= viewport.h）
     const cellsVisibility = await page.evaluate(() => {
       const cells = Array.from(
-        document.querySelectorAll('[role="dialog"] .grid > button'),
+        document.querySelectorAll('[role="dialog"] button[aria-label^="看见 "]'),
       );
       const h = window.innerHeight;
       return cells.map((c) => {
         const r = c.getBoundingClientRect();
         return {
-          name: c.textContent?.trim() ?? '',
+          name: c.getAttribute('aria-label') ?? '',
           top: Math.round(r.top),
           bottom: Math.round(r.bottom),
           visible: r.top >= 0 && r.bottom <= h,

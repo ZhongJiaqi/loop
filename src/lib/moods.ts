@@ -2,13 +2,14 @@ import type { MoodBucket, MoodBucketId } from '../types';
 
 // 9 桶 canonical 数据。词典从大卫·霍金斯能量层级表（情绪表格）OCR 整理。
 // 设计 doc: docs/superpowers/specs/2026-06-08-mood-design.html
-// 颜色：低能量(深紫灰) → 高能量(浅天蓝) 冷暗→温亮渐变，避开 loop 米色/金色系。
+// 颜色：低能量 → 高能量 暗冷灰 → 暖亮调，全部低饱和（水墨淡彩家族），
+// 跟 loop 米色基底兼容，不显眼但能区分。
 export const MOOD_BUCKETS: readonly MoodBucket[] = [
   {
     id: 'bukar',
     zhName: '万念俱灰',
     motive: '想生存',
-    color: '#5B4F6E',
+    color: '#5C5460',
     words: [
       '无聊', '不能赢', '粗心大意', '冷淡', '停止', '死亡', '被打败', '沮丧', '泄气', '凄惨',
       '绝望', '气馁', '幻想破灭', '死定了', '精疲力竭', '失败', '可遗忘的', '没出息', '放弃',
@@ -23,7 +24,7 @@ export const MOOD_BUCKETS: readonly MoodBucket[] = [
     id: 'bitter',
     zhName: '悲苦',
     motive: '想被认同',
-    color: '#5C6A82',
+    color: '#6A6A78',
     words: [
       '被遗弃', '被羞辱', '被控告', '极度痛苦', '丢脸', '被背叛', '忧郁', '被欺骗', '绝望',
       '失望', '心烦意乱', '尴尬的', '被忘掉', '愧疚的', '心碎的', '头痛', '沮丧', '无助的',
@@ -37,7 +38,7 @@ export const MOOD_BUCKETS: readonly MoodBucket[] = [
     id: 'fear',
     zhName: '恐惧',
     motive: '想要安全稳妥',
-    color: '#6B7A8F',
+    color: '#7A7A85',
     words: [
       '焦虑', '不安', '小心谨慎', '又冷又黏又湿', '胆小怯懦', '自我防卫的', '不信任', '怀疑',
       '惧怕', '尴尬的', '逃避的', '预感', '狂乱的', '犹豫不决', '惊骇的', '歇斯底里', '拘束的',
@@ -50,7 +51,7 @@ export const MOOD_BUCKETS: readonly MoodBucket[] = [
     id: 'greed',
     zhName: '贪求',
     motive: '想要控制',
-    color: '#8C7656',
+    color: '#8A7E6A',
     words: [
       '放弃', '预期', '冷酷无情', '等不了', '冲动', '渴求', '苛求的', '狡诈的', '被驱使的',
       '嫉妒', '剥削', '过分迷恋', '暴怒', '失意的', '贪吃暴食的', '贪婪的', '囤积（hoarding）',
@@ -63,7 +64,7 @@ export const MOOD_BUCKETS: readonly MoodBucket[] = [
     id: 'anger',
     zhName: '愤怒',
     motive: '想要控制',
-    color: '#B5654E',
+    color: '#A87A6A',
     words: [
       '伤人感情的', '好斗的', '被惹恼的', '好辩的', '好战的', '（怒火）激烈', '令人恐惧的',
       '刻薄的', '挑衅的', '苛求的', '毁灭性的', '嫌恶', '脾气暴躁', '凶猛的', '泄气的', '气愤',
@@ -77,7 +78,7 @@ export const MOOD_BUCKETS: readonly MoodBucket[] = [
     id: 'pride',
     zhName: '自尊自傲',
     motive: '想被认同',
-    color: '#B89860',
+    color: '#B09870',
     words: [
       '无疵可寻', '超然离群', '自负', '固执己见', '无聊', '聪明', '封闭的', '沾沾自喜', '愉快',
       '逞能', '轻蔑的', '酷', '挑剔的', '鄙弃', '傲慢专断', '假谦卑', '虚假美德', '扬扬得意',
@@ -91,7 +92,7 @@ export const MOOD_BUCKETS: readonly MoodBucket[] = [
     id: 'brave',
     zhName: '无畏',
     motive: '—',
-    color: '#7DA286',
+    color: '#95A890',
     words: [
       '喜欢冒险的', '警惕的', '活着的', '胸有成竹', '机警的', '有中心的（centered）', '有把握的',
       '聪明', '思路清晰', '怜悯', '能干的', '自信的', '创新的', '大胆', '果断的', '有活力',
@@ -105,7 +106,7 @@ export const MOOD_BUCKETS: readonly MoodBucket[] = [
     id: 'accept',
     zhName: '接纳',
     motive: '—',
-    color: '#9BB8A5',
+    color: '#B0C2AD',
     words: [
       '丰盛', '有眼力的', '平衡', '美丽', '归属感', '天真烂漫', '同情心', '体贴的', '高兴',
       '兴高采烈', '拥抱', '善解人意', '丰富', '一切都很好', '友善的', '丰满', '温柔', '热情洋溢',
@@ -118,7 +119,7 @@ export const MOOD_BUCKETS: readonly MoodBucket[] = [
     id: 'peace',
     zhName: '平和',
     motive: '—',
-    color: '#C5D2D8',
+    color: '#C5D0D2',
     words: [
       '永不衰老', '有觉悟的', '存在', '无边无际', '镇定', '不朽', '自由', '满足的', '热情洋溢',
       '轻松', '同一性', '完美', '纯粹', '安静', '宁静', '无限空间（space）', '静止', '永恒的',
