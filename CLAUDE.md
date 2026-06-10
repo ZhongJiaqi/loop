@@ -22,10 +22,13 @@ Single-page React 19 PWA with Firebase backend, deployed on Vercel.
 
 - **Auth**: Firebase Auth (Google Sign-in) → `App.tsx` passes `user.uid` to `useStore()`
 - **State**: `useStore.ts` is a custom hook that manages all data via Firestore `onSnapshot` real-time listeners — no Redux/Zustand
-- **Two active Firestore collections** per user (under `users/{userId}/`):
+- **Three active Firestore collections** per user (under `users/{userId}/`):
   - `microHabits` — practice definitions (Affirmations + Habits), `category` field discriminates; `sortIndex` field drives Practice-page drag-to-reorder + Today render order
   - `tasks` — daily task instances (deterministic ID `{habitId}_{date}`), one task per active microHabit per day
+  - `moods` — Mood entries (Hawkins-scale bucket + word list + createdAt). Independent hook `useMoodStore` + zero shared visual components with Affirmation/Habit — Mood is designed as a future spin-off product.
   - ~~`habitPool`~~ — DEPRECATED (5-25). Hall of Fame is view-computed by `HistoryView` from microHabits+tasks. Old docs in Firestore retained, `firestore.rules` keeps owner-only access. Frontend no longer reads or writes
+
+**⚠️ firestore.rules deploy gotcha**: any change to `firestore.rules` requires `firebase deploy --only firestore` — vercel/git push does NOT touch Firestore rules. Has been forgotten twice (5-03 task.type refactor → `08b13ac` rescue; 6-08 Mood Phase 1 → `97147eb` rescue). Add to DoD checklist for any rules-touching feature.
 
 ### Critical: Task Creation Logic
 
@@ -40,14 +43,18 @@ Task creation for habits is centralized in a single `useEffect` in `useStore.ts`
 
 ### UI Structure
 
-`App.tsx` has three tabs (Today / Practice / History) with `AnimatePresence` transitions. Mobile-first layout capped at `max-w-md`. Components:
+`App.tsx` has **four tabs** (Today / Practice / Mood / History) with `AnimatePresence` transitions. Mobile-first layout capped at `max-w-md`. Components:
 
 - `TodayView` — daily task list with completion toggles, per-section + whole-page confetti on all-complete (mutually exclusive)
 - `PracticeView` — CRUD for Affirmations + Habits, drag-to-reorder via `@dnd-kit` (numeric ordinal `01`/`02` is the drag activator)
 - `SortableHabitItem` — `useSortable` wrapper around each Practice row
+- `MoodView` — Mood feed grouped by day, opens `MoodPickerSheet` (createPortal'd to body to escape parent motion.div `filter` containing block)
+- `MoodPickerSheet` — list-style 9-bucket picker + word cloud chips (Hawkins energy-level scale, watercolor palette)
+- `MoodEntryRow` — single mood entry wrapped in `SwipeActions` for edit/delete
 - `HistoryView` — calendar heatmap, streak analytics, view-computed 21-Day Hall, DayDetailSheet bottom-sheet
 - `SwipeActions` — mobile swipe-to-reveal for edit/delete (coexists with dnd-kit by yielding to vertical pointer movement)
 - `NetworkStatusBanner` — amber-tone banner driven by `useNetworkStatus` (1.5s debounce on offline, 15s threshold on Firestore unreach)
+- `NotificationPrompt` — push notification opt-in. Optimistic UI: click 开启 → `setVisible(false)` immediately, `requestPermissionAndSubscribe` runs in background fire-and-forget. Errors (except `permission=denied`) re-show prompt with 重试 + 重置 SW buttons.
 
 ### Design Tokens (hardcoded, no theme file)
 
