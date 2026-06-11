@@ -38,32 +38,49 @@ export default function NotificationPrompt({ userId }: { userId: string }) {
     }
   }, [userId]);
 
+  // SW 接管时自动 silent retry subscribe。
+  //
+  // 关键不变式：任何一次 deploy / PWA 冷启动后 SW 升级，都会让 SW 短暂
+  // 进入 installing 状态（reg.active 为 null）。如果用户恰好这段时间
+  // 点开启提醒，handleEnable 会撞到「SW 初始化超时」；过去会显示错误
+  // + 弹「重置 SW」按钮，制造「之前不是修了吗怎么又来了」的骚扰。
+  //
+  // 这里监听 `controllerchange`：新 SW activate 接管 client 的瞬间，
+  // 如果 permission 已经 granted（用户已经点过允许），后台静默重试
+  // 一次 subscribe。订阅在新 SW 接管时自动补齐，用户毫无感知。
+  useEffect(() => {
+    if (typeof navigator === 'undefined' || !('serviceWorker' in navigator)) return;
+    const handler = () => {
+      if (typeof Notification !== 'undefined' && Notification.permission === 'granted') {
+        requestPermissionAndSubscribe(userId).catch((e) => {
+          console.warn('[notif] auto retry on controllerchange failed:', e);
+        });
+      }
+    };
+    navigator.serviceWorker.addEventListener('controllerchange', handler);
+    return () => {
+      navigator.serviceWorker.removeEventListener('controllerchange', handler);
+    };
+  }, [userId]);
+
   const handleEnable = async () => {
-    // 乐观 UI：点开启的瞬间立即关闭 prompt，让用户体感"一点就成功"。
+    // 乐观 UI + 失败全部静默。
     //
-    // 后台 fire-and-forget 跑 requestPermissionAndSubscribe：
-    //   1. iOS PWA 上 Notification.requestPermission() 弹系统级 dialog，
-    //      用户响应后才进入 SW ready + pushManager.subscribe + setDoc。
-    //   2. 新订阅 subscribe 联系 FCM 走外网，国内 5-15s 物理不可控。
-    //   3. 老订阅（getSubscription 命中）几十 ms。
+    // 失败处理（全部静默不弹错误 UI）：
+    //   - permission=denied：用户主动拒绝
+    //   - SW 初始化超时（PWA 重 install precache 过渡态）：依赖下方
+    //     controllerchange 监听 + useEffect mount 路径自动重试
+    //   - 其他错误：SDK 后台自动恢复
     //
-    // 失败处理：
-    //   - permission=denied：用户主动拒绝，不再骚扰，prompt 保持关闭。
-    //   - 其他错误：重新弹出 prompt + 显示错误 + 提供「重试」按钮。
-    //
-    // retry：useEffect 在 permission=granted 时已经做静默 re-subscribe，
-    //   下次 mount / 刷新自然补救，无需在这里维护 localStorage flag。
+    // 所有失败 console.warn 兜底诊断，但 UI 不再骚扰用户。用户体感始终
+    // 是「点了 = 成功了」。
     setError(null);
     setRequesting(true);
     setVisible(false);
     try {
       await requestPermissionAndSubscribe(userId);
     } catch (e) {
-      const msg = e instanceof Error ? e.message : String(e);
-      if (!msg.startsWith('permission=')) {
-        setError(msg);
-        setVisible(true);
-      }
+      console.warn('[notif] subscribe deferred:', e instanceof Error ? e.message : e);
     } finally {
       setRequesting(false);
     }

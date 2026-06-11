@@ -97,8 +97,9 @@ describe('NotificationPrompt 乐观 UI', () => {
   });
 
   afterEach(() => {
-    cleanup();
+    cleanup(); // 先 unmount React（让 useEffect cleanup 还能访问 stubbed globals）
     delete (globalThis as unknown as Record<string, unknown>).Notification;
+    delete (navigator as unknown as Record<string, unknown>).serviceWorker;
   });
 
   it('点开启按钮立即关闭 prompt（不等 subscribe 完成）', async () => {
@@ -129,7 +130,7 @@ describe('NotificationPrompt 乐观 UI', () => {
     expect(requestPermissionAndSubscribeMock).toHaveBeenCalledTimes(1);
   });
 
-  it('subscribe 失败（非 permission denied）时重新弹出 prompt + 错误', async () => {
+  it('subscribe 失败时静默不再弹出 prompt + 不显示错误（SW 升级过渡态不骚扰）', async () => {
     let rejectFn: (err: Error) => void = () => {};
     requestPermissionAndSubscribeMock.mockImplementation(
       () =>
@@ -150,16 +151,60 @@ describe('NotificationPrompt 乐观 UI', () => {
       ).toBeNull();
     });
 
-    // 后台 reject
+    // 后台 reject（典型 SW 升级过渡态错误）
     await act(async () => {
       rejectFn(new Error('Service Worker 初始化超时（15s；installing(installing),scope=/）'));
     });
 
-    // prompt 重新弹出 + 错误显示
-    expect(
-      await screen.findByText(/Service Worker 初始化超时/),
-    ).not.toBeNull();
-    expect(await screen.findByRole('button', { name: /重试/ })).not.toBeNull();
+    // 关键不变式：prompt 保持关闭，错误不显示，「重置 SW」按钮不显示。
+    // 依赖 controllerchange 监听器 + useEffect mount 路径在 SW active 时
+    // 静默 retry。用户体感始终是「点了 = 成功了」。
+    await new Promise((r) => setTimeout(r, 20));
+    expect(screen.queryByRole('button', { name: /^开启$/ })).toBeNull();
+    expect(screen.queryByText(/Service Worker/)).toBeNull();
+    expect(screen.queryByRole('button', { name: /重置/ })).toBeNull();
+    expect(screen.queryByRole('button', { name: /重试/ })).toBeNull();
+  });
+
+  it('SW controllerchange 事件 + permission=granted → 自动 silent retry subscribe', async () => {
+    stubNotificationPermission('granted');
+    requestPermissionAndSubscribeMock.mockResolvedValue({ endpoint: 'fcm-endpoint' });
+
+    // mock navigator.serviceWorker with addEventListener
+    const handlers: Record<string, EventListener[]> = {};
+    Object.defineProperty(navigator, 'serviceWorker', {
+      configurable: true,
+      writable: true,
+      value: {
+        addEventListener: (event: string, h: EventListener) => {
+          (handlers[event] = handlers[event] || []).push(h);
+        },
+        removeEventListener: (event: string, h: EventListener) => {
+          handlers[event] = (handlers[event] || []).filter((x) => x !== h);
+        },
+      },
+    });
+
+    render(<NotificationPrompt userId="test-user" />);
+    await new Promise((r) => setTimeout(r, 20));
+
+    // useEffect mount 路径已经触发一次（permission=granted）
+    const initialCalls = requestPermissionAndSubscribeMock.mock.calls.length;
+    expect(initialCalls).toBeGreaterThanOrEqual(1);
+
+    // 模拟 SW activate 触发 controllerchange
+    await act(async () => {
+      (handlers['controllerchange'] || []).forEach((h) => h(new Event('controllerchange')));
+    });
+
+    // 触发了额外一次 silent retry
+    expect(requestPermissionAndSubscribeMock.mock.calls.length).toBeGreaterThan(
+      initialCalls,
+    );
+    // UI 完全无变化（prompt 仍隐藏，无错误）
+    expect(screen.queryByRole('button', { name: /^开启$/ })).toBeNull();
+    expect(screen.queryByText(/Service Worker/)).toBeNull();
+    // serviceWorker stub 在 afterEach 里清
   });
 
   it('permission denied 时 prompt 保持关闭（用户主动拒绝不再骚扰）', async () => {
