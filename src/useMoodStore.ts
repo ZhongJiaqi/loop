@@ -10,10 +10,7 @@ import {
   orderBy,
 } from 'firebase/firestore';
 import { db } from './firebase';
-import { withTimeout } from './lib/timeout';
 import type { MoodBucketId, MoodEntry } from './types';
-
-const WRITE_TIMEOUT_MS = 10000;
 
 // === Pure helpers (单测覆盖) ===
 
@@ -74,14 +71,25 @@ export function useMoodStore(userId: string | null): MoodStore {
     return unsub;
   }, [userId]);
 
+  // 三个 mutation 全部 fire-and-forget，不再 withTimeout 等服务器 ack。
+  //
+  // 之前 `await withTimeout(addDoc, 10s)` 会在国内 Firestore ack 慢时（5-30s
+  // 常态）误报"addMood超时"。但写入其实已经成功：Firestore SDK 跟
+  // persistentLocalCache 协作 — addDoc 立即写本地 IndexedDB，onSnapshot 带
+  // `hasPendingWrites=true` 立刻 emit 新 entry，UI 通过 useEffect 监听器
+  // 即时显示。后台异步 sync 到云端，失败时 SDK 自动重试。
+  //
+  // 真正 fatal 失败（rules 拒绝等）：本地 cache 会被回滚，UI 上 entry 短暂
+  // 闪现后消失。console.error 兜底诊断。
+  //
+  // 函数签名保留 Promise<void> + async 关键字以兼容 MoodView.handleDone 的
+  // await 调用（await 一个立即 resolved 的 promise）。
   const addMood = async (bucket: MoodBucketId, words: string[]) => {
     if (!userId) return;
     const ref = collection(db, `users/${userId}/moods`);
-    await withTimeout(
-      addDoc(ref, buildMoodPayload(userId, bucket, words)),
-      WRITE_TIMEOUT_MS,
-      'addMood',
-    );
+    addDoc(ref, buildMoodPayload(userId, bucket, words)).catch((e) => {
+      console.error('[mood] addDoc background failure:', e);
+    });
   };
 
   const updateMood = async (
@@ -90,17 +98,17 @@ export function useMoodStore(userId: string | null): MoodStore {
   ) => {
     if (!userId) return;
     const ref = doc(db, `users/${userId}/moods/${id}`);
-    await withTimeout(
-      updateDoc(ref, buildMoodUpdatePayload(patch)),
-      WRITE_TIMEOUT_MS,
-      'updateMood',
-    );
+    updateDoc(ref, buildMoodUpdatePayload(patch)).catch((e) => {
+      console.error('[mood] updateDoc background failure:', e);
+    });
   };
 
   const deleteMood = async (id: string) => {
     if (!userId) return;
     const ref = doc(db, `users/${userId}/moods/${id}`);
-    await withTimeout(deleteDoc(ref), WRITE_TIMEOUT_MS, 'deleteMood');
+    deleteDoc(ref).catch((e) => {
+      console.error('[mood] deleteDoc background failure:', e);
+    });
   };
 
   return { entries, loaded, addMood, updateMood, deleteMood };
