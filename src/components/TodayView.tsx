@@ -186,7 +186,7 @@ function TaskRow({ task, category, missedDays, onToggle }: TaskRowProps) {
           aria-label={task.completed ? "Mark incomplete" : "Mark complete"}
         />
         {/* ✨ bloom：从 checkbox 中心一颗 ✨ 由小到大扩散开 —— 仅 Affirmation。
-            Mindset 不要这颗 ✨，只保留行 glow + 文字 textShadow pulse 的低调仪式。 */}
+            Mindset 用雾蓝圆点涟漪扩散（水波纹意象，对应"思想被铭记"语义）。 */}
         <AnimatePresence>
           {isAffirmationDone && (
             <motion.span
@@ -207,6 +207,26 @@ function TaskRow({ task, category, missedDays, onToggle }: TaskRowProps) {
             >
               ✨
             </motion.span>
+          )}
+          {isMindsetDone && (
+            <motion.span
+              key="ripple"
+              initial={{ scale: 0.35, opacity: 0.55 }}
+              animate={{ scale: 4.5, opacity: 0 }}
+              transition={{ duration: 0.95, ease: [0.16, 1, 0.3, 1] }}
+              className="absolute block rounded-full pointer-events-none"
+              style={{
+                left: "50%",
+                top: "50%",
+                width: "16px",
+                height: "16px",
+                marginLeft: "-8px",
+                marginTop: "-8px",
+                backgroundColor: "rgba(123,149,181,0.45)",
+                transformOrigin: "center",
+              }}
+              aria-hidden="true"
+            />
           )}
         </AnimatePresence>
       </div>
