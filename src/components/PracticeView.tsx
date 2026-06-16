@@ -38,7 +38,7 @@ interface CategorySectionProps {
 
 const CATEGORY_PLACEHOLDER: Record<Category, string> = {
   affirmation: 'I am…',
-  mindset: 'I choose / I believe…',
+  mindset: 'Enter a mindset…',
   habit: 'Enter a new habit…',
 };
 
