@@ -185,9 +185,10 @@ function TaskRow({ task, category, missedDays, onToggle }: TaskRowProps) {
           }`}
           aria-label={task.completed ? "Mark incomplete" : "Mark complete"}
         />
-        {/* ✨ bloom：从 checkbox 中心一颗 ✨ 由小到大扩散开 */}
+        {/* ✨ bloom：从 checkbox 中心一颗 ✨ 由小到大扩散开 —— 仅 Affirmation。
+            Mindset 不要这颗 ✨，只保留行 glow + 文字 textShadow pulse 的低调仪式。 */}
         <AnimatePresence>
-          {ceremonyDone && (
+          {isAffirmationDone && (
             <motion.span
               key="bloom"
               initial={{ scale: 0, opacity: 0.95 }}
