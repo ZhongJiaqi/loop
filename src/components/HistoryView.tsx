@@ -3,10 +3,17 @@ import { createPortal } from 'react-dom';
 import { format, addMonths, subMonths, startOfMonth, endOfMonth, startOfWeek, endOfWeek, eachDayOfInterval, isSameMonth, isToday, isYesterday, differenceInDays, parseISO } from 'date-fns';
 import { motion, AnimatePresence, PanInfo, useDragControls } from 'motion/react';
 import { ChevronLeft, ChevronRight } from 'lucide-react';
-import { Task, MicroHabit } from '../types';
+import { Task, MicroHabit, MicroHabitCategory } from '../types';
 import { cn } from '../lib/utils';
 
-type Filter = 'all' | 'habit' | 'affirmation';
+type Filter = 'all' | 'habit' | 'mindset' | 'affirmation';
+
+const FILTER_LABEL: Record<Filter, string> = {
+  all: 'All',
+  habit: 'Habits',
+  mindset: 'Mindsets',
+  affirmation: 'Affirmations',
+};
 
 export default function HistoryView({ store }: { store: any }) {
   const { tasks, microHabits } = store.data;
@@ -16,7 +23,7 @@ export default function HistoryView({ store }: { store: any }) {
   const [sheetOpen, setSheetOpen] = useState(false);
 
   // build category map (habitId → category)
-  const habitCategoryMap = new Map<string, 'habit' | 'affirmation'>();
+  const habitCategoryMap = new Map<string, MicroHabitCategory>();
   microHabits.forEach((h: MicroHabit) =>
     habitCategoryMap.set(h.id, h.category ?? 'habit')
   );
@@ -105,8 +112,8 @@ export default function HistoryView({ store }: { store: any }) {
           <h2 className="text-[10px] font-medium text-[#A09E9A] uppercase tracking-[0.2em]">
             History
           </h2>
-          <div className="flex items-center gap-4 text-[10px] tracking-[0.2em] uppercase">
-            {(['all', 'habit', 'affirmation'] as Filter[]).map(f => (
+          <div className="flex items-center gap-3 text-[10px] tracking-[0.15em] uppercase">
+            {(['all', 'habit', 'mindset', 'affirmation'] as Filter[]).map(f => (
               <button
                 key={f}
                 onClick={() => setFilter(f)}
@@ -114,7 +121,7 @@ export default function HistoryView({ store }: { store: any }) {
                   filter === f ? 'text-[#1A1A1A] font-medium' : 'text-[#A09E9A] hover:text-[#5C5A56]'
                 }`}
               >
-                {f === 'habit' ? 'Habits' : f === 'affirmation' ? 'Affirmations' : 'All'}
+                {FILTER_LABEL[f]}
               </button>
             ))}
           </div>
@@ -236,20 +243,22 @@ export default function HistoryView({ store }: { store: any }) {
         </div>
       </div>
 
-      {/* The 21-Day Hall — view-computed: any microHabit with >= 21 total
-          completed days lands here, sorted by completion count descending.
-          Filter-aware (respects All / Habits / Affirmations toggle). */}
+      {/* The 21-Day Hall — Hall is reserved for Habits only. Affirmations and
+          Mindsets are心智锚定, not behavior-formation, so they don't enter the
+          Hall. When the filter is set to Affirmations/Mindsets, the Hall shows
+          its empty state (because no entries survive the habit-only filter). */}
       <div>
         <h2 className="text-[10px] font-medium text-[#A09E9A] uppercase tracking-[0.2em] mb-6 text-center">
           The 21-Day Hall
         </h2>
 
         {(() => {
-          // For each microHabit (filter-aware) compute completion count + the
-          // exact date the 21st completion landed (= achievedDate).
           const hallEntries = microHabits
             .filter((h: MicroHabit) => {
-              if (filter !== 'all' && (h.category ?? 'habit') !== filter) return false;
+              // Hall only counts habits — affirmations/mindsets excluded
+              if ((h.category ?? 'habit') !== 'habit') return false;
+              // Respect filter — when Affirmations/Mindsets is selected, Hall is empty
+              if (filter !== 'all' && filter !== 'habit') return false;
               const completedCount = tasks.filter(
                 (t: Task) => t.habitId === h.id && t.completed,
               ).length;
@@ -262,7 +271,6 @@ export default function HistoryView({ store }: { store: any }) {
               return {
                 id: h.id,
                 title: h.title,
-                category: h.category ?? 'habit',
                 count: completedSorted.length,
                 achievedDate: completedSorted[20].date, // the 21st completion's date
               };
@@ -287,42 +295,28 @@ export default function HistoryView({ store }: { store: any }) {
                 (entry: {
                   id: string;
                   title: string;
-                  category: 'habit' | 'affirmation';
                   count: number;
                   achievedDate: string;
-                }) => {
-                  const isAffirmation = entry.category === 'affirmation';
-                  return (
-                    <motion.div
-                      initial={{ opacity: 0, y: 10 }}
-                      animate={{ opacity: 1, y: 0 }}
-                      key={entry.id}
-                      className="flex items-center justify-between py-4 border-b border-[#EAE8E3]"
-                    >
-                      <div className="flex flex-col gap-1 min-w-0 flex-1">
-                        <span
-                          className={`text-[15px] font-serif text-[#2C2C2C] truncate ${
-                            isAffirmation ? 'italic' : ''
-                          }`}
-                        >
-                          {isAffirmation && (
-                            <span className="text-[#A09E9A]">&ldquo;</span>
-                          )}
-                          {entry.title}
-                          {isAffirmation && (
-                            <span className="text-[#A09E9A]">&rdquo;</span>
-                          )}
-                        </span>
-                        <span className="text-[10px] text-[#A09E9A] tracking-widest uppercase">
-                          {entry.count} Times Completed
-                        </span>
-                      </div>
-                      <span className="text-[10px] text-[#A09E9A] tracking-widest uppercase text-right ml-4 whitespace-nowrap">
-                        Achieved<br/>{entry.achievedDate}
+                }) => (
+                  <motion.div
+                    initial={{ opacity: 0, y: 10 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    key={entry.id}
+                    className="flex items-center justify-between py-4 border-b border-[#EAE8E3]"
+                  >
+                    <div className="flex flex-col gap-1 min-w-0 flex-1">
+                      <span className="text-[15px] font-serif text-[#2C2C2C] truncate">
+                        {entry.title}
                       </span>
-                    </motion.div>
-                  );
-                },
+                      <span className="text-[10px] text-[#A09E9A] tracking-widest uppercase">
+                        {entry.count} Times Completed
+                      </span>
+                    </div>
+                    <span className="text-[10px] text-[#A09E9A] tracking-widest uppercase text-right ml-4 whitespace-nowrap">
+                      Achieved<br/>{entry.achievedDate}
+                    </span>
+                  </motion.div>
+                ),
               )}
             </div>
           );
@@ -332,11 +326,15 @@ export default function HistoryView({ store }: { store: any }) {
   );
 }
 
-function renderTaskRow(task: Task, isAffirmation: boolean) {
+function renderTaskRow(task: Task, category: MicroHabitCategory) {
+  const isAffirmation = category === 'affirmation';
+  const isMindset = category === 'mindset';
   const dotClass = task.completed
     ? isAffirmation
       ? 'bg-[#C9A961]'
-      : 'bg-[#8A9A86]'
+      : isMindset
+        ? 'bg-[#7B95B5]'
+        : 'bg-[#8A9A86]'
     : 'border border-[#D1CEC7] bg-transparent';
   return (
     <li key={task.id} className="flex items-center gap-3 py-1">
@@ -370,18 +368,19 @@ const SHEET_CLOSE_DRAG_THRESHOLD = 100;
 function DayDetailSheet({ open, onClose, selectedDate, tasks, microHabits }: DayDetailSheetProps) {
   const dragControls = useDragControls();
   const dayDate = parseISO(selectedDate);
-  const habitCategoryMap = new Map<string, 'habit' | 'affirmation'>();
+  const habitCategoryMap = new Map<string, MicroHabitCategory>();
   const habitById = new Map<string, MicroHabit>();
   microHabits.forEach((h) => {
     habitCategoryMap.set(h.id, h.category ?? 'habit');
     habitById.set(h.id, h);
   });
   const dayTasks = tasks.filter((t) => t.date === selectedDate);
-  // Group by category (affirmations first, habits second) to match the
-  // Today tab's vertical layout. Within each group, completed tasks bubble
-  // up before missed ones; same-state tasks follow the user's Practice-page
+  // Group by category (Affirmations → Mindsets → Habits) to match the Today
+  // tab's vertical layout. Within each group, completed tasks bubble up
+  // before missed ones; same-state tasks follow the user's Practice-page
   // sort order so this view matches Today.
-  const isAff = (t: Task) => habitCategoryMap.get(t.habitId) === 'affirmation';
+  const getCat = (t: Task): MicroHabitCategory =>
+    habitCategoryMap.get(t.habitId) ?? 'habit';
   const byHabitOrder = (a: Task, b: Task) => {
     const ha = habitById.get(a.habitId);
     const hb = habitById.get(b.habitId);
@@ -392,11 +391,14 @@ function DayDetailSheet({ open, onClose, selectedDate, tasks, microHabits }: Day
     if (typeof bi === 'number') return 1;
     return (ha?.createdAt ?? '').localeCompare(hb?.createdAt ?? '');
   };
-  const affs = dayTasks.filter(isAff);
-  const habs = dayTasks.filter((t) => !isAff(t));
+  const affs = dayTasks.filter((t) => getCat(t) === 'affirmation');
+  const minds = dayTasks.filter((t) => getCat(t) === 'mindset');
+  const habs = dayTasks.filter((t) => getCat(t) === 'habit');
   const orderedTasks = [
     ...affs.filter((t) => t.completed).sort(byHabitOrder),
     ...affs.filter((t) => !t.completed).sort(byHabitOrder),
+    ...minds.filter((t) => t.completed).sort(byHabitOrder),
+    ...minds.filter((t) => !t.completed).sort(byHabitOrder),
     ...habs.filter((t) => t.completed).sort(byHabitOrder),
     ...habs.filter((t) => !t.completed).sort(byHabitOrder),
   ];
@@ -492,7 +494,7 @@ function DayDetailSheet({ open, onClose, selectedDate, tasks, microHabits }: Day
                   </p>
                   <ul className="space-y-3 pb-4">
                     {orderedTasks.map((task) =>
-                      renderTaskRow(task, habitCategoryMap.get(task.habitId) === 'affirmation')
+                      renderTaskRow(task, habitCategoryMap.get(task.habitId) ?? 'habit')
                     )}
                   </ul>
                 </>

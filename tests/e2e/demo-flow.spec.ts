@@ -22,27 +22,31 @@ test.describe('Demo mode (logged-in UI surrogate)', () => {
     });
     await page.goto(DEMO_URL);
     await page.waitForSelector('h1', { timeout: 15000 });
-    // Wait for affirmations + habits + section labels to settle
+    // Wait for all three sections + section labels to settle
     await expect(page.getByText('Affirmations', { exact: true })).toBeVisible();
+    await expect(page.getByText('Mindsets', { exact: true })).toBeVisible();
     await expect(page.getByText('Habits', { exact: true })).toBeVisible();
     await page.waitForTimeout(400);
     expect(errors, `Unexpected console errors:\n${errors.join('\n')}`).toEqual([]);
   });
 
-  test('Today shows 2 affirmations + 2 habits sections', async ({ page }) => {
+  test('Today shows 3 sections: Affirmations + Mindsets + Habits', async ({ page }) => {
     await page.goto(DEMO_URL);
     await page.waitForSelector('h1', { timeout: 15000 });
 
     // Brand visible in header
     await expect(page.locator('h1').first()).toContainText('Loop');
 
-    // Two section labels rendered
+    // Three section labels rendered (Affirmation → Mindset → Habit order)
     await expect(page.getByText('Affirmations', { exact: true })).toBeVisible();
+    await expect(page.getByText('Mindsets', { exact: true })).toBeVisible();
     await expect(page.getByText('Habits', { exact: true })).toBeVisible();
 
     // Preset content present
     await expect(page.getByText('I am enough.')).toBeVisible();
     await expect(page.getByText('Today, I choose calm.')).toBeVisible();
+    await expect(page.getByText('用行动构建自信')).toBeVisible();
+    await expect(page.getByText('转移注意力')).toBeVisible();
     await expect(page.getByText('散步 30 分钟')).toBeVisible();
     await expect(page.getByText('读书 20 页')).toBeVisible();
   });
@@ -181,11 +185,12 @@ test.describe('Demo mode (logged-in UI surrogate)', () => {
     expect(habitsBefore).toEqual(['散步 30 分钟', '读书 20 页']);
 
     // Activator is a <button aria-label="Reorder item N..."> with the ordinal.
-    // 4 activators on the page in DOM order: a1(0), a2(1), h1(2: 散步), h2(3: 读书).
-    // Focus the 散步 handle (nth=2) and use @dnd-kit's keyboard sensor.
+    // 6 activators in DOM order (Practice page sections):
+    //   a1(0), a2(1), m1(2: 用行动构建自信), m2(3: 转移注意力), h1(4: 散步), h2(5: 读书)
+    // Focus the 散步 handle (nth=4) and use @dnd-kit's keyboard sensor.
     const handles = page.locator('button[aria-label^="Reorder item"]');
-    await expect(handles).toHaveCount(4);
-    await handles.nth(2).focus();
+    await expect(handles).toHaveCount(6);
+    await handles.nth(4).focus();
     await page.keyboard.press('Space');
     await page.waitForTimeout(150);
     await page.keyboard.press('ArrowDown');

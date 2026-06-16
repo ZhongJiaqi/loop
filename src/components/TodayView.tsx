@@ -2,7 +2,7 @@ import { useEffect, useRef, type ReactNode, type RefObject } from "react";
 import { format } from "date-fns";
 import { motion, AnimatePresence } from "motion/react";
 import type { Options as ConfettiOptions } from "canvas-confetti";
-import { Task, MicroHabit } from "../types";
+import { Task, MicroHabit, MicroHabitCategory } from "../types";
 
 // canvas-confetti dynamic-imported on first celebration so the package
 // (~10kB raw / ~4kB gzip) stays out of the initial bundle. The promise is
@@ -103,26 +103,56 @@ function daysSinceLastCompletion(
 
 interface TaskRowProps {
   task: Task;
-  isAffirmation: boolean;
+  category: MicroHabitCategory;
   missedDays: number;
   onToggle: () => void;
 }
 
-function TaskRow({ task, isAffirmation, missedDays, onToggle }: TaskRowProps) {
+function TaskRow({ task, category, missedDays, onToggle }: TaskRowProps) {
+  const isAffirmation = category === "affirmation";
+  const isMindset = category === "mindset";
+  const isHabit = category === "habit";
   const isAffirmationDone = isAffirmation && task.completed;
-  const isHabitDone = !isAffirmation && task.completed;
+  const isMindsetDone = isMindset && task.completed;
+  const isHabitDone = isHabit && task.completed;
 
   // Habit completion: line-through + muted gray (任务被勾掉的视觉)
-  // Affirmation completion: 保留深色 + 不划线 + 末尾 ✨ ("被点亮"的视觉)
+  // Affirmation / Mindset completion: 共享一套"被点亮"动画（行 glow + ✨ bloom
+  //   + 文字 textShadow pulse）；末尾持续 ✨ 仅 Affirmation 有。
+  //   颜色由 category 决定 —— Affirmation 走金色 (#D4AF37 体系)，
+  //   Mindset 走雾蓝 (#7B95B5 体系，rgba 123,149,181)。
+  const ceremonyDone = isAffirmationDone || isMindsetDone;
+  const ceremony = isMindsetDone
+    ? {
+        bg: "linear-gradient(90deg, rgba(123,149,181,0.22) 0%, rgba(123,149,181,0.08) 40%, transparent 80%)",
+        bloomShadow: "rgba(123,149,181,0.85)",
+        sparkleShadow: "rgba(123,149,181,0.7)",
+        textPulse: [
+          "0 0 0px rgba(123,149,181,0)",
+          "0 0 14px rgba(123,149,181,0.75)",
+          "0 0 0px rgba(123,149,181,0)",
+        ],
+      }
+    : {
+        bg: "linear-gradient(90deg, rgba(212,175,55,0.18) 0%, rgba(212,175,55,0.06) 40%, transparent 80%)",
+        bloomShadow: "rgba(212,175,55,0.8)",
+        sparkleShadow: "rgba(212,175,55,0.65)",
+        textPulse: [
+          "0 0 0px rgba(212,175,55,0)",
+          "0 0 14px rgba(212,175,55,0.7)",
+          "0 0 0px rgba(212,175,55,0)",
+        ],
+      };
+
   const titleClass = isHabitDone
     ? "text-[#B0ADA5] line-through decoration-[#C4C1B9]"
     : "text-[#2C2C2C]";
 
   return (
     <div className="flex items-center gap-4 py-3 border-b border-[#EAE8E3] relative overflow-visible">
-      {/* 行背景暖光：肯定语点亮瞬间，一道金色微光从左到右扫过 */}
+      {/* 行背景暖光：被点亮瞬间，一道色光从左到右扫过 */}
       <AnimatePresence>
-        {isAffirmationDone && (
+        {ceremonyDone && (
           <motion.div
             key="row-glow"
             initial={{ opacity: 0 }}
@@ -134,8 +164,7 @@ function TaskRow({ task, isAffirmation, missedDays, onToggle }: TaskRowProps) {
             }}
             className="absolute inset-0 pointer-events-none"
             style={{
-              background:
-                "linear-gradient(90deg, rgba(212,175,55,0.18) 0%, rgba(212,175,55,0.06) 40%, transparent 80%)",
+              background: ceremony.bg,
             }}
             aria-hidden="true"
           />
@@ -149,14 +178,16 @@ function TaskRow({ task, isAffirmation, missedDays, onToggle }: TaskRowProps) {
             task.completed
               ? isAffirmation
                 ? "bg-[#C9A961] border-[#C9A961]"
-                : "bg-[#8A9A86] border-[#8A9A86]"
+                : isMindset
+                  ? "bg-[#7B95B5] border-[#7B95B5]"
+                  : "bg-[#8A9A86] border-[#8A9A86]"
               : "border-[#C4C1B9]"
           }`}
           aria-label={task.completed ? "Mark incomplete" : "Mark complete"}
         />
         {/* ✨ bloom：从 checkbox 中心一颗 ✨ 由小到大扩散开 */}
         <AnimatePresence>
-          {isAffirmationDone && (
+          {ceremonyDone && (
             <motion.span
               key="bloom"
               initial={{ scale: 0, opacity: 0.95 }}
@@ -168,7 +199,7 @@ function TaskRow({ task, isAffirmation, missedDays, onToggle }: TaskRowProps) {
                 top: "50%",
                 marginLeft: "-7px",
                 marginTop: "-8px",
-                filter: "drop-shadow(0 0 6px rgba(212,175,55,0.8))",
+                filter: `drop-shadow(0 0 6px ${ceremony.bloomShadow})`,
                 transformOrigin: "center",
               }}
               aria-hidden="true"
@@ -185,16 +216,12 @@ function TaskRow({ task, isAffirmation, missedDays, onToggle }: TaskRowProps) {
         }`}
       >
         {isAffirmation && <span className="text-[#A09E9A]">&ldquo;</span>}
-        {/* 文字暖辉：被点亮瞬间，标题短暂金色辉光脉冲 */}
-        {isAffirmationDone ? (
+        {/* 文字暖辉：被点亮瞬间，标题短暂辉光脉冲（颜色随 category 不同） */}
+        {ceremonyDone ? (
           <motion.span
-            initial={{ textShadow: "0 0 0px rgba(212,175,55,0)" }}
+            initial={{ textShadow: ceremony.textPulse[0] }}
             animate={{
-              textShadow: [
-                "0 0 0px rgba(212,175,55,0)",
-                "0 0 14px rgba(212,175,55,0.7)",
-                "0 0 0px rgba(212,175,55,0)",
-              ],
+              textShadow: ceremony.textPulse,
             }}
             transition={{
               duration: 1.4,
@@ -221,7 +248,7 @@ function TaskRow({ task, isAffirmation, missedDays, onToggle }: TaskRowProps) {
               }}
               className="ml-2 inline-block not-italic"
               style={{
-                filter: "drop-shadow(0 0 6px rgba(212,175,55,0.65))",
+                filter: `drop-shadow(0 0 6px ${ceremony.sparkleShadow})`,
               }}
               aria-hidden="true"
             >
@@ -250,7 +277,7 @@ export default function TodayView({ store }: TodayViewProps) {
   const today = format(new Date(), "yyyy-MM-dd");
   const tasksToday = store.data.tasks.filter((t: Task) => t.date === today);
 
-  const habitCategoryMap = new Map<string, "habit" | "affirmation">();
+  const habitCategoryMap = new Map<string, MicroHabitCategory>();
   const habitById = new Map<string, MicroHabit>();
   store.data.microHabits.forEach((h: MicroHabit) => {
     habitCategoryMap.set(h.id, h.category ?? "habit");
@@ -280,8 +307,11 @@ export default function TodayView({ store }: TodayViewProps) {
   const affirmations = tasksToday
     .filter((t: Task) => habitCategoryMap.get(t.habitId) === "affirmation")
     .sort(sortByHabitOrder);
+  const mindsets = tasksToday
+    .filter((t: Task) => habitCategoryMap.get(t.habitId) === "mindset")
+    .sort(sortByHabitOrder);
   const habits = tasksToday
-    .filter((t: Task) => habitCategoryMap.get(t.habitId) !== "affirmation")
+    .filter((t: Task) => (habitCategoryMap.get(t.habitId) ?? "habit") === "habit")
     .sort(sortByHabitOrder);
 
   const allCompleted =
@@ -289,10 +319,13 @@ export default function TodayView({ store }: TodayViewProps) {
 
   const affAllCompleted =
     affirmations.length > 0 && affirmations.every((t: Task) => t.completed);
+  const mindAllCompleted =
+    mindsets.length > 0 && mindsets.every((t: Task) => t.completed);
   const habAllCompleted =
     habits.length > 0 && habits.every((t: Task) => t.completed);
 
   const affSectionRef = useRef<HTMLDivElement>(null);
+  const mindSectionRef = useRef<HTMLDivElement>(null);
   const habSectionRef = useRef<HTMLDivElement>(null);
 
   // Celebrate when the user completes everything for the day.
@@ -320,6 +353,12 @@ export default function TodayView({ store }: TodayViewProps) {
     sectionRef: affSectionRef,
     skipWhen: allCompleted,
     colors: ["#D4AF37", "#F3E5AB", "#C9A961", "#E5C97B"],
+  });
+  useSectionConfetti({
+    active: mindAllCompleted,
+    sectionRef: mindSectionRef,
+    skipWhen: allCompleted,
+    colors: ["#7B95B5", "#95ACC7", "#6A85A5", "#B0C3D6"],
   });
   useSectionConfetti({
     active: habAllCompleted,
@@ -371,7 +410,29 @@ export default function TodayView({ store }: TodayViewProps) {
               <div key={task.id}>
                 <TaskRow
                   task={task}
-                  isAffirmation
+                  category="affirmation"
+                  missedDays={getMissed(task.habitId)}
+                  onToggle={() => store.toggleTaskCompletion(task.id)}
+                />
+              </div>
+            ))}
+          </motion.div>
+        )}
+
+        {mindsets.length > 0 && (
+          <motion.div
+            key="mindsets-group"
+            ref={mindSectionRef}
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+          >
+            <SectionLabel>Mindsets</SectionLabel>
+            {mindsets.map((task: Task) => (
+              <div key={task.id}>
+                <TaskRow
+                  task={task}
+                  category="mindset"
                   missedDays={getMissed(task.habitId)}
                   onToggle={() => store.toggleTaskCompletion(task.id)}
                 />
@@ -393,7 +454,7 @@ export default function TodayView({ store }: TodayViewProps) {
               <div key={task.id}>
                 <TaskRow
                   task={task}
-                  isAffirmation={false}
+                  category="habit"
                   missedDays={getMissed(task.habitId)}
                   onToggle={() => store.toggleTaskCompletion(task.id)}
                 />

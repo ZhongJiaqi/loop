@@ -22,7 +22,7 @@ import { sortByOrder } from '../lib/reorder';
 import SwipeActions from './SwipeActions';
 import SortableHabitItem from './SortableHabitItem';
 
-type Category = 'habit' | 'affirmation';
+type Category = 'habit' | 'affirmation' | 'mindset';
 
 interface PracticeViewProps {
   store: any;
@@ -35,6 +35,18 @@ interface CategorySectionProps {
   habits: MicroHabit[];
   store: any;
 }
+
+const CATEGORY_PLACEHOLDER: Record<Category, string> = {
+  affirmation: 'I am…',
+  mindset: 'I choose / I believe…',
+  habit: 'Enter a new habit…',
+};
+
+const CATEGORY_ADD_LABEL: Record<Category, string> = {
+  affirmation: 'Add Affirmation',
+  mindset: 'Add Mindset',
+  habit: 'Add Habit',
+};
 
 function CategorySection({
   title,
@@ -167,7 +179,7 @@ function CategorySection({
                 <input
                   autoFocus
                   type="text"
-                  placeholder={isAffirmation ? 'Enter an affirmation...' : 'Enter a new habit...'}
+                  placeholder={CATEGORY_PLACEHOLDER[category]}
                   value={newTitle}
                   onChange={e => setNewTitle(e.target.value)}
                   onBlur={() => {
@@ -203,7 +215,7 @@ function CategorySection({
           className="mt-3 flex items-center gap-2 text-[11px] uppercase tracking-[0.2em] text-[#A09E9A] hover:text-[#2C2C2C] transition-colors"
         >
           <Plus className="w-3 h-3 stroke-[2]" />
-          <span>Add {isAffirmation ? 'Affirmation' : 'Habit'}</span>
+          <span>{CATEGORY_ADD_LABEL[category]}</span>
         </motion.button>
       )}
     </div>
@@ -214,6 +226,10 @@ export default function PracticeView({ store }: PracticeViewProps) {
   const allHabits: MicroHabit[] = store.data.microHabits;
   const affirmations = useMemo(
     () => sortByOrder(allHabits.filter(h => (h.category ?? 'habit') === 'affirmation')),
+    [allHabits],
+  );
+  const mindsets = useMemo(
+    () => sortByOrder(allHabits.filter(h => h.category === 'mindset')),
     [allHabits],
   );
   const habits = useMemo(
@@ -234,6 +250,14 @@ export default function PracticeView({ store }: PracticeViewProps) {
         category="affirmation"
         emptyText="Words you live by, repeated."
         habits={affirmations}
+        store={store}
+      />
+
+      <CategorySection
+        title="Mindsets"
+        category="mindset"
+        emptyText="Mental models you return to."
+        habits={mindsets}
         store={store}
       />
 

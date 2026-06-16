@@ -1,4 +1,4 @@
-export type MicroHabitCategory = 'habit' | 'affirmation';
+export type MicroHabitCategory = 'habit' | 'affirmation' | 'mindset';
 
 export interface MicroHabit {
   id: string;

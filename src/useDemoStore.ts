@@ -14,6 +14,8 @@ function makeInitial(allDone = false) {
   const habits: MicroHabit[] = [
     { id: 'a1', title: 'I am enough.',          createdAt, active: true, userId: DEMO_USER_ID, category: 'affirmation', sortIndex: 0 },
     { id: 'a2', title: 'Today, I choose calm.', createdAt, active: true, userId: DEMO_USER_ID, category: 'affirmation', sortIndex: 1 },
+    { id: 'm1', title: '用行动构建自信',         createdAt, active: true, userId: DEMO_USER_ID, category: 'mindset',     sortIndex: 0 },
+    { id: 'm2', title: '转移注意力',             createdAt, active: true, userId: DEMO_USER_ID, category: 'mindset',     sortIndex: 1 },
     { id: 'h1', title: '散步 30 分钟',          createdAt, active: true, userId: DEMO_USER_ID, category: 'habit',       sortIndex: 0 },
     { id: 'h2', title: '读书 20 页',            createdAt, active: true, userId: DEMO_USER_ID, category: 'habit',       sortIndex: 1 },
   ];
