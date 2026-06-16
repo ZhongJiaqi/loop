@@ -1,7 +1,82 @@
 # Loop — 交接文档
 
-> 上次更新: 2026-06-08 深夜（第六轮 — /loop 自主推进 + 单测锁定）
-> **新会话从这里开始**：项目稳定运行在 `https://loop-365.vercel.app`。origin/main HEAD = `bb05ce3`（本地领先 1 个 HANDOFF commit，**HANDOFF-only 不 push**），working tree clean。lint 0 / **95 单测 / 21 e2e** 全过（之前 91/21；NotificationPrompt 乐观 UI 4 个不变式单测）。最近一轮发版：**6-08 深夜六连击 — ① SW 超时（`70c8bc9`）② Mood silent failure + rules deploy（`97147eb`）③ Mood 字体一致化（`6aa2fb3`）④ SW ready + 升级链路（`618fff4`）⑤ 开启提醒乐观 UI（`9bc6568`）⑥ 乐观 UI 单测锁定（`bb05ce3`，纯 test 改动，无 deploy）**。
+> 上次更新: 2026-06-11 晚 第二轮（NotificationPrompt 真盲点修复）
+> **新会话从这里开始**：项目稳定运行在 `https://loop-365.vercel.app`。origin/main HEAD = `9f50f6b`（本地领先 1 个 HANDOFF commit，**HANDOFF-only 不 push**），working tree clean。lint 0 / **96 单测 / 21 e2e** 全过。最近一轮发版：**`9f50f6b` NotificationPrompt handleEnable 失败静默 + controllerchange 自动 retry**，真正堵住「SW 升级过渡态骚扰」+ **`13f3a9c` Mood mutation 改 fire-and-forget**。
+
+### 2026-06-11 晚 第二轮 — NotificationPrompt 真盲点修复（`9f50f6b`）
+
+用户原话：「允许通知又出现问题：报网络问题的同时出现重置按钮，这问题之前不是已经修复了吗？」
+
+**真盲点**：`618fff4` 修了「reg.active 立即可用」，但没堵「用户首次点开启 + SW 正在 install 过渡态」：
+1. 点开启→系统弹窗→允许→`Notification.permission='granted'`
+2. 后台 `requestPermissionAndSubscribe` → `waitForServiceWorkerReady` 看 `reg.active=null`（precache 下载中）→ 15s 超时
+3. `handleEnable` catch 触发 `setError + setVisible(true)` → 错误重新弹出 + 「重置 SW」按钮
+
+而 `useEffect` 的 retry 路径 deps 是 `[userId]`，**不会随 SW state 变化而重跑** — 错误显示出来了，但等 SW 真 active 时**没人去 retry**。每次 deploy → PWA 重 install 1.1MB precache → 用户又掉进过渡态。「之前修了又来」的真因。
+
+**修复**（commit `9f50f6b`，已 deploy `loop-jrs1r13of`）：
+1. `handleEnable` 失败**全部静默**：不再 `setError + setVisible(true)`。permission denied + SW 超时 + 其他错误都 `console.warn` 兜底，UI 不骚扰用户
+2. 新增 `useEffect` 监听 **`navigator.serviceWorker.controllerchange`**：新 SW activate 接管 client 时，如 `permission === 'granted'` → 后台 silent retry subscribe。订阅在 SW 接管瞬间自动补齐
+3. 单测改 #2 关键不变式反转（失败时**保持关闭 + 不显示错误/重置按钮**），新增 #5 controllerchange + granted 自动 retry。95 → 96 单测
+
+**效果承诺**：不管 deploy 多少次让 PWA 重 install，用户**始终看不到「网络问题 + 重置 SW」骚扰**；SW 一旦 active 后台自动 subscribe；体感始终是「点了 = 成功」。
+
+**保留**：NotificationPrompt 内 reset 按钮 UI 代码（`error` 永远 null 所以渲染分支不触发），future 如需 escape hatch 可启用。
+> 历史名字演化：**Micro Habits → Becoming（5-03）→ Loop（5-22）**。HANDOFF 历史段保留原品牌词作为时间戳锚点，请按段头日期判断当时品牌。
+
+### 2026-06-11 — Mood 超时根因修复（`13f3a9c`）
+
+用户报「保存失败：addMood超时（10s）」。挖出 SDK 协议误读根因：**Firestore `addDoc()` 返回的 promise 等的是服务器 ack（国内 5-30s 常态），不是本地 cache 写入**。修复前：写入其实已经成功（本地 IndexedDB + onSnapshot 已 emit），但 10s timeout 误报失败，用户被错误文案误导。
+
+修复（commit `13f3a9c`，已 deploy `loop-q77grj85s` 自动 promote `loop-365.vercel.app`）：
+- `useMoodStore.ts` 三个 mutation（addMood / updateMood / deleteMood）改 fire-and-forget：不再 `await withTimeout`，改 `.catch()` 兜底诊断
+- 函数签名保留 `Promise<void>` 兼容 `MoodView.handleDone` 的 await 调用
+- 删 `WRITE_TIMEOUT_MS` + `withTimeout` import
+- **UX**：点 Done → sheet 瞬间关闭，feed 立刻显示新 entry（onSnapshot local cache emit）→ 无等待感；离线也能记录，SDK 自动重连重试
+
+**为什么 6-08 `97147eb` 的 try/catch 反而暴露了这个**：那时给了用户「保存失败」错误显示，但实际写入已成功，是错误的"诊断信号"。fire-and-forget 才是 PWA + offline-first 正解。
+
+**Loop 项目其它 Firestore 写入是否要同款改造？** 暂未改。`useStore.ts` 的 microHabits / tasks 写入仍 await（无 withTimeout），跟 mood 不一样的是：没有用户可见的"超时"误报。除非用户报相同症状，不主动改。
+
+---
+
+## 0. 新会话开场必读（🔴 优先读）
+
+### 0.1 整夜工作链（6-08 → 6-10 凌晨，6 个 prod commit）
+
+| 顺序 | Commit | 主题 | 状态 |
+|---|---|---|---|
+| ① | `70c8bc9` | iOS PWA SW 反复超时根因修复（push-handler try/catch + workbox skipWaiting + reset 逃生 + 错误带状态 snapshot + 超时 20s→60s） | 已 deploy |
+| ② | `97147eb` | Mood 写入 silent failure 修复 + `firebase deploy --only firestore`（Phase 1 漏 deploy 导致 mood 写入被 rules 拒绝） | 已 deploy |
+| ③ | `6aa2fb3` | Mood 字体一致化（picker / feed / 空态 / 日期 header 全 font-serif，删内联 fontFamily） | 已 deploy |
+| ④ | `618fff4` | SW ready 条件放宽（`reg.active` 立即返回不等 installing/waiting）+ main.tsx 加回温和 SW lifecycle（updatefound → SKIP_WAITING，无 reload）+ 超时 60s→15s | 已 deploy |
+| ⑤ | `9bc6568` | 开启提醒乐观 UI（点开启瞬间 `setVisible(false)` 后台 fire-and-forget；permission denied 不骚扰；其他错误重新弹出） | 已 deploy |
+| ⑥ | `bb05ce3` | NotificationPrompt 乐观 UI 4 个不变式单测锁定（含 motion/react mock） | **pure test，无 deploy** |
+
+### 0.2 🟡 用户最后未决策的事
+
+用户当晚最后状态：开启提醒**仍然慢 / 仍 SW 初始化超时**。我的诊断：**不是代码改坏**，是一晚 **5 次 prod push** 让用户 PWA 处于「反复 install 1.1MB precache」过渡态。每次新 sw.js（hash 变了）→ 浏览器自动 fetch + install → 跟 Firestore SDK 抢资源 → 启动慢 + NetworkStatusBanner 误报 + reg.active 一直 null → 开启提醒 statechange 超时。
+
+**我给用户的二选一**（用户未回话，新会话开场必须问）：
+
+- **A. 等 PWA 稳定**（推荐）：今晚起不再 push。用户操作：杀 PWA → 重开 → 不点任何按钮等 60s 让 SW install 完 → 再杀再开。下次 PWA 启动 SW 已 active + cache 热 + IndexedDB 有数据，回到「一点就成功」体验。保留今晚所有真 bug 修复（push-handler crash 取消订阅 / SW ready 卡 60s / Mood silent failure）。
+- **B. 回滚到昨天 `9ec04c7`**：`git revert` 今天所有 SW 相关 commit 再 push 最后一次（也是唯一一次再 install），恢复昨天体验。**代价**：push-handler crash 取消订阅、SW ready 卡 60s、Mood 写入 silent failure 这几个真 bug 复活。
+
+### 0.3 推荐第一句问用户
+
+> 「昨天最后没决策完——你 PWA 现在体验怎么样了？已经稳定 OK 了，还是依然慢？需要回滚到昨天的代码吗？」
+
+根据回复：
+- 「OK 了」→ 真凶就是 deploy 频繁，无需改代码，可以推进其他事
+- 「还慢」→ 立即执行 B：`git revert 70c8bc9 618fff4 9bc6568`（保留 `97147eb` Mood 修复 + `6aa2fb3` 字体一致化 + `bb05ce3` 单测）→ push → 最后一次 install 完成后稳定
+- 「想做别的」→ 跟随用户
+
+### 0.4 反思教训
+
+- ⛔ **同一晚不要反复 deploy PWA 项目**：每次 push 都让 PWA 重新 install workbox precache（这个项目是 1.1MB / 43 个 entry）。短期内多次 push 会让用户处在永远的过渡态。建议：**当晚改完攒成一个 PR，第二天 deploy 一次**。
+- ⛔ **firestore.rules 变更必须配套 `firebase deploy --only firestore`**：今晚发现 Mood feature 6-08 早 Phase 1 加 `isValidMood` 但没 deploy → 整天 mood 写入都被拒绝。5-03 Becoming refactor 也踩过同款（`08b13ac` 补救）。**两次同款失误**，未来 rules 变更必须 DoD 里加 firebase deploy 配套验证。
+
+---
 
 ### 2026-06-08 深夜追加 — NotificationPrompt 乐观 UI 单测锁定（`bb05ce3`）
 
