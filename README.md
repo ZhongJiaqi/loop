@@ -6,15 +6,18 @@
 
 肯定语和习惯的每日实践。思想创造感觉，感觉驱动行动，行动塑造你。
 
-A daily-practice PWA that pairs **affirmations** (what you tell yourself) with **habits** (what you do), built on the behavior-science loop *thoughts → feelings → actions → identity → thoughts*.
+A daily-practice PWA built on a **BE → THINK → DO** model: who you are (affirmations), how you think (mindsets), what you do (habits). Behavior-science loop *thoughts → feelings → actions → identity → thoughts*.
 
 ## Features
 
-- **Today** - One ritual flow per day: read your affirmations, then check off your habits
-- **Practice** - Manage two kinds of daily practice: affirmations (italic, quoted) and habits (serif, upright)
+- **Today** - One ritual flow per day in three sections:
+  - **Affirmations** (gold ✨, *I am…*) — identity-level statements (情感锚定)
+  - **Mindsets** (misty blue ripple, *I choose / I believe…*) — mental models that guide action (认知工具)
+  - **Habits** (sage green, line-through on complete) — concrete daily actions
+- **Practice** - Manage all three: each section has its own CRUD + drag-to-reorder
 - **Mood** - A "stop and notice" space alongside the do-loop. Pick from 9 emotional buckets (David Hawkins energy-level scale) and 450+ feeling words to name what's here. Reverse aesthetic to Practice — italic serif tagline `See your feelings.`, list-style buckets in a muted watercolor palette
-- **History** - Calendar heatmap, streak counter, weekly chart, with All / Habits / Affirmations filter
-- **21-Day Hall of Fame** - Practices reaching 21 consecutive days enter the Hall — affirmations and habits alike
+- **History** - Calendar heatmap, streak counter, weekly chart, with All / Habits / Mindsets / Affirmations filter
+- **21-Day Hall of Fame** - Habits reaching 21 completed days enter the Hall. Affirmations and Mindsets are mental-anchoring rituals, not behavior-formation goals — they don't enter the Hall by design
 - **PWA** - Installable on mobile, works offline-first
 - **Swipe Actions** - Left-swipe to edit/delete on mobile
 
@@ -60,7 +63,7 @@ After deployment, add the Vercel domain to Firebase Console > Authentication > A
 ```
 src/
 ├── App.tsx                # Main app: auth + 4-tab navigation
-├── useStore.ts            # Affirmations/Habits state: Firestore CRUD + daily task creation
+├── useStore.ts            # Practices state (Affirmation/Mindset/Habit): Firestore CRUD + daily task creation
 ├── useMoodStore.ts        # Mood state: independent hook, separate Firestore collection
 ├── useDemoStore.ts        # In-memory store for ?demo=1 mode
 ├── firebase.ts            # Firebase initialization
@@ -70,8 +73,8 @@ src/
 │   ├── moodFormat.ts      # Date grouping + relative day labels
 │   └── ...
 ├── components/
-│   ├── TodayView.tsx      # Daily task completion + per-section confetti
-│   ├── PracticeView.tsx   # Affirmation/Habit CRUD + drag-to-reorder
+│   ├── TodayView.tsx      # Daily task completion + per-section confetti (3 sections)
+│   ├── PracticeView.tsx   # Affirmation/Mindset/Habit CRUD + drag-to-reorder
 │   ├── MoodView.tsx       # Mood feed grouped by day, lazy-loaded
 │   ├── MoodPickerSheet.tsx # Bucket list + word cloud, rendered via createPortal
 │   ├── MoodEntryRow.tsx   # Single mood entry + SwipeActions wrap
