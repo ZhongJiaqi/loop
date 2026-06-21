@@ -13,7 +13,9 @@ const HistoryView = lazy(() => import('./components/HistoryView'));
 const MoodView = lazy(() => import('./components/MoodView'));
 import NotificationPrompt from './components/NotificationPrompt';
 import NetworkStatusBanner from './components/NetworkStatusBanner';
+import ConnectivityError from './components/ConnectivityError';
 import { useNetworkStatus } from './lib/useNetworkStatus';
+import { useAuthTimeout } from './lib/useAuthTimeout';
 import { useStore } from './useStore';
 import { useDemoStore, isDemoMode } from './useDemoStore';
 import { useMoodStore } from './useMoodStore';
@@ -78,6 +80,9 @@ export default function App() {
   const [loginError, setLoginError] = useState<string | null>(null);
   const [loginPending, setLoginPending] = useState(false);
   const demoMode = isDemoMode();
+  // Firebase auth 网络不通时 onAuthStateChanged 永不回调；10s 兜底超时让用户
+  // 不再卡死在 splash/skeleton，而是看到 ConnectivityError 提示检查代理/网络。
+  const authTimedOut = useAuthTimeout({ authReady: authReady || demoMode });
   const realStore = useStore(user?.uid);
   const demoStore = useDemoStore();
   const store = demoMode ? demoStore : realStore;
@@ -164,6 +169,13 @@ export default function App() {
       setLoginPending(false);
     }
   };
+
+  // Auth 10s 兜底超时未触发：Firebase 服务不可达（代理挂掉 / Google 服务被阻断），
+  // splash/skeleton 会永远不消失。渲染 ConnectivityError 提示用户检查网络。
+  // 必须放在 splash + hadSession 乐观渲染分支之前，否则两条路径都会卡死。
+  if (authTimedOut && !authReady && !demoMode) {
+    return <ConnectivityError onRetry={() => window.location.reload()} />;
+  }
 
   // Splash 只对"首次访问 / 没登录过"的新用户显示。
   // 老用户（hadSession=true）跳过 splash，直接走到下方乐观主框架渲染。
