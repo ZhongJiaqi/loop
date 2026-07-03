@@ -8,7 +8,10 @@ test.use({ viewport: { width: 390, height: 844 } });
 // serial 避免并发跑时多个 page 争 preview server 导致 lazy chunk 加载抖动
 test.describe.configure({ mode: 'serial' });
 
-test.describe('Mood tab (demo flow)', () => {
+// SKIPPED 2026-07-03：MOOD tab 暂时从底部导航隐藏（体验期，见 App.tsx 注释）。
+// mood 代码全部保留，这些用例也保留——恢复 tab 时去掉 .skip 即可；
+// 若日后彻底删除 mood 模块，连同本文件一起删。
+test.describe.skip('Mood tab (demo flow)', () => {
   test('4 tabs render in correct order', async ({ page }) => {
     const errors: string[] = [];
     page.on('console', (m) => {

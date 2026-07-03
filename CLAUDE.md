@@ -43,7 +43,7 @@ Task creation for habits is centralized in a single `useEffect` in `useStore.ts`
 
 ### UI Structure
 
-`App.tsx` has **four tabs** (Today / Practice / Mood / History) with `AnimatePresence` transitions. Mobile-first layout capped at `max-w-md`. Components:
+`App.tsx` has **three visible tabs** (Today / Practice / History) with `AnimatePresence` transitions. Mobile-first layout capped at `max-w-md`. **MOOD tab is temporarily hidden from the bottom nav (2026-07-03, trial period)** — all mood code (`MoodView` / `useMoodStore` / mood render block / `activeTab` 'mood' type) is retained and reachable if the nav button is re-added; slated for either restore or full removal after the trial. Components:
 
 - `TodayView` — daily task list with completion toggles, per-section + whole-page confetti on all-complete (mutually exclusive)
 - `PracticeView` — CRUD for Affirmations + Habits, drag-to-reorder via `@dnd-kit` (numeric ordinal `01`/`02` is the drag activator)

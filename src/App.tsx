@@ -1,6 +1,6 @@
 import { useState, useEffect, lazy, Suspense } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
-import { Calendar, List, Clock, Eye } from 'lucide-react';
+import { Calendar, List, Clock } from 'lucide-react';
 import TodayView from './components/TodayView';
 // PracticeView pulls in @dnd-kit/{core,sortable,utilities} for drag-to-reorder.
 // Users land on Today, so defer Practice's chunk (incl. dnd-kit) until they switch tabs.
@@ -337,13 +337,9 @@ export default function App() {
             <List className="w-5 h-5 stroke-[1.5]" />
             <span className={`text-[9px] mt-1.5 tracking-widest transition-all duration-500 ${activeTab === 'practice' ? 'opacity-100 font-medium' : 'opacity-0 h-0 overflow-hidden'}`}>PRACTICE</span>
           </button>
-          <button
-            onClick={() => setActiveTab('mood')}
-            className={`flex flex-col items-center p-2 transition-all duration-500 ${activeTab === 'mood' ? 'text-[#1A1A1A]' : 'text-[#A09E9A] hover:text-[#5C5A56]'}`}
-          >
-            <Eye className="w-5 h-5 stroke-[1.5]" />
-            <span className={`text-[9px] mt-1.5 tracking-widest transition-all duration-500 ${activeTab === 'mood' ? 'opacity-100 font-medium' : 'opacity-0 h-0 overflow-hidden'}`}>MOOD</span>
-          </button>
+          {/* MOOD tab 暂时从底部导航隐藏（2026-07-03，体验期）。
+              MoodView / useMoodStore / mood 渲染块 / activeTab 'mood' 类型全部保留，
+              日后决定：恢复则加回本按钮；彻底不用则整体删除 mood 模块。 */}
           <button
             onClick={() => setActiveTab('history')}
             className={`flex flex-col items-center p-2 transition-all duration-500 ${activeTab === 'history' ? 'text-[#1A1A1A]' : 'text-[#A09E9A] hover:text-[#5C5A56]'}`}
