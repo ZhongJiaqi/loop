@@ -45,7 +45,9 @@ Task creation for habits is centralized in a single `useEffect` in `useStore.ts`
 
 `App.tsx` has **three visible tabs** (Today / Practice / History) with `AnimatePresence` transitions. Mobile-first layout capped at `max-w-md`. **MOOD tab is temporarily hidden from the bottom nav (2026-07-03, trial period)** — all mood code (`MoodView` / `useMoodStore` / mood render block / `activeTab` 'mood' type) is retained and reachable if the nav button is re-added; slated for either restore or full removal after the trial. Components:
 
-- `TodayView` — daily task list with completion toggles, per-section + whole-page confetti on all-complete (mutually exclusive)
+- `TodayView` — daily tasks split into 3 sub-tabs (Affirmations / Mindsets / Habits, the BE→THINK→DO model). Renders `TodayTabBar` + `TodayPager`: tap a tab or horizontal-swipe to switch modules; the last-viewed tab is remembered via `localStorage` key `loop.today.tab` (`src/lib/lastTab.ts`). Per-section + whole-page confetti on all-complete stay (mutually exclusive); `allCompleted` spans all 3 modules, not just the active tab. Mindset accent is Dusk 藕荷 `#B48AA0` (was 雾蓝 `#7B95B5`)
+- `TodayTabBar` — B3 sub-tab bar: short uppercase label + done/total count + semantic-color progress underline (fills to completion %) + italic-serif explanation row. Tab metadata + `moduleStats` live in `src/lib/todayTabs.ts`
+- `TodayPager` — controlled horizontal swipe pager (window-level pointer listeners with axis lock; each page scrolls its own content). Gesture logic covered by e2e / real-browser QA, not jsdom
 - `PracticeView` — CRUD for Affirmations + Habits, drag-to-reorder via `@dnd-kit` (numeric ordinal `01`/`02` is the drag activator)
 - `SortableHabitItem` — `useSortable` wrapper around each Practice row
 - `MoodView` — Mood feed grouped by day, opens `MoodPickerSheet` (createPortal'd to body to escape parent motion.div `filter` containing block)
