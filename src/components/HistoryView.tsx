@@ -306,7 +306,7 @@ function renderTaskRow(task: Task, category: MicroHabitCategory) {
     ? isAffirmation
       ? 'bg-[#C9A961]'
       : isMindset
-        ? 'bg-[#7B95B5]'
+        ? 'bg-[#B48AA0]'
         : 'bg-[#8A9A86]'
     : 'border border-[#D1CEC7] bg-transparent';
   return (

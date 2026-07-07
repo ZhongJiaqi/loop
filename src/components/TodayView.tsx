@@ -1,9 +1,19 @@
-import { useEffect, useRef, type ReactNode, type RefObject } from "react";
+import {
+  useEffect,
+  useRef,
+  useState,
+  useCallback,
+  type RefObject,
+} from "react";
 import { format } from "date-fns";
 import { motion, AnimatePresence } from "motion/react";
 import type { Options as ConfettiOptions } from "canvas-confetti";
 import { Task, MicroHabit, MicroHabitCategory } from "../types";
 import { excludeOrphanTasks } from "../lib/orphanTasks";
+import { TODAY_TABS, moduleStats, type TodayTabKey } from "../lib/todayTabs";
+import { readLastTab, writeLastTab } from "../lib/lastTab";
+import TodayTabBar, { type TodayTab } from "./TodayTabBar";
+import TodayPager from "./TodayPager";
 
 // canvas-confetti dynamic-imported on first celebration so the package
 // (~10kB raw / ~4kB gzip) stays out of the initial bundle. The promise is
@@ -18,14 +28,6 @@ function fireConfetti(opts: ConfettiOptions): void {
 
 interface TodayViewProps {
   store: any;
-}
-
-function SectionLabel({ children }: { children: ReactNode }) {
-  return (
-    <div className="text-[10px] font-medium text-[#A09E9A] uppercase tracking-[0.2em] mt-8 mb-3">
-      {children}
-    </div>
-  );
 }
 
 /**
@@ -121,17 +123,17 @@ function TaskRow({ task, category, missedDays, onToggle }: TaskRowProps) {
   // Affirmation / Mindset completion: 共享一套"被点亮"动画（行 glow + ✨ bloom
   //   + 文字 textShadow pulse）；末尾持续 ✨ 仅 Affirmation 有。
   //   颜色由 category 决定 —— Affirmation 走金色 (#D4AF37 体系)，
-  //   Mindset 走雾蓝 (#7B95B5 体系，rgba 123,149,181)。
+  //   Mindset 走藕荷 (Dusk #B48AA0 体系，rgba 180,138,160)。
   const ceremonyDone = isAffirmationDone || isMindsetDone;
   const ceremony = isMindsetDone
     ? {
-        bg: "linear-gradient(90deg, rgba(123,149,181,0.22) 0%, rgba(123,149,181,0.08) 40%, transparent 80%)",
-        bloomShadow: "rgba(123,149,181,0.85)",
-        sparkleShadow: "rgba(123,149,181,0.7)",
+        bg: "linear-gradient(90deg, rgba(180,138,160,0.22) 0%, rgba(180,138,160,0.08) 40%, transparent 80%)",
+        bloomShadow: "rgba(180,138,160,0.85)",
+        sparkleShadow: "rgba(180,138,160,0.7)",
         textPulse: [
-          "0 0 0px rgba(123,149,181,0)",
-          "0 0 14px rgba(123,149,181,0.75)",
-          "0 0 0px rgba(123,149,181,0)",
+          "0 0 0px rgba(180,138,160,0)",
+          "0 0 14px rgba(180,138,160,0.75)",
+          "0 0 0px rgba(180,138,160,0)",
         ],
       }
     : {
@@ -180,7 +182,7 @@ function TaskRow({ task, category, missedDays, onToggle }: TaskRowProps) {
               ? isAffirmation
                 ? "bg-[#C9A961] border-[#C9A961]"
                 : isMindset
-                  ? "bg-[#7B95B5] border-[#7B95B5]"
+                  ? "bg-[#B48AA0] border-[#B48AA0]"
                   : "bg-[#8A9A86] border-[#8A9A86]"
               : "border-[#C4C1B9]"
           }`}
@@ -223,7 +225,7 @@ function TaskRow({ task, category, missedDays, onToggle }: TaskRowProps) {
                 height: "16px",
                 marginLeft: "-8px",
                 marginTop: "-8px",
-                backgroundColor: "rgba(123,149,181,0.45)",
+                backgroundColor: "rgba(180,138,160,0.45)",
                 transformOrigin: "center",
               }}
               aria-hidden="true"
@@ -383,7 +385,7 @@ export default function TodayView({ store }: TodayViewProps) {
     active: mindAllCompleted,
     sectionRef: mindSectionRef,
     skipWhen: allCompleted,
-    colors: ["#7B95B5", "#95ACC7", "#6A85A5", "#B0C3D6"],
+    colors: ["#B48AA0", "#C7A6BB", "#9E7791", "#D8C1CE"],
   });
   useSectionConfetti({
     active: habAllCompleted,
@@ -392,14 +394,41 @@ export default function TodayView({ store }: TodayViewProps) {
     colors: ["#8A9A86", "#A8B5A2", "#6F8267", "#C2CFBC"],
   });
 
-  return (
-    <div className="pb-12">
-      <div className="mb-10 pt-4">
-        <p className="text-xs text-[#8C8C8C] leading-relaxed font-light tracking-wide italic">
-          You are what you repeatedly do.
-        </p>
-      </div>
+  // ── Sub-tab state (BE → THINK → DO) ──────────────────────────────────────
+  // Only one module's list shows at a time; tab click or horizontal swipe moves
+  // between them. The last-viewed tab is remembered across sessions.
+  const [tabIndex, setTabIndex] = useState<number>(() => {
+    const i = TODAY_TABS.findIndex((t) => t.key === readLastTab());
+    return i === -1 ? 0 : i;
+  });
+  const handleSelect = useCallback((i: number) => {
+    setTabIndex(i);
+    const key = TODAY_TABS[i]?.key;
+    if (key) writeLastTab(key);
+  }, []);
 
+  const tasksByKey: Record<TodayTabKey, Task[]> = {
+    affirmation: affirmations,
+    mindset: mindsets,
+    habit: habits,
+  };
+  const sectionRefByKey = {
+    affirmation: affSectionRef,
+    mindset: mindSectionRef,
+    habit: habSectionRef,
+  } as const;
+  const tabs: TodayTab[] = TODAY_TABS.map((meta) => ({
+    meta,
+    stats: moduleStats(tasksByKey[meta.key]),
+  }));
+
+  return (
+    <div className="h-full flex flex-col pt-4">
+      <p className="text-xs text-[#8C8C8C] font-light tracking-wide italic mb-5 flex-shrink-0">
+        You are what you repeatedly do.
+      </p>
+
+      {/* 全天全部完成的庆祝横幅（基于全 3 模块，非仅当前 tab） */}
       <AnimatePresence>
         {allCompleted && (
           <motion.div
@@ -408,7 +437,7 @@ export default function TodayView({ store }: TodayViewProps) {
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0, scale: 0.95 }}
             transition={{ duration: 0.6, ease: [0.16, 1, 0.3, 1] }}
-            className="mb-10 py-6 text-center relative"
+            className="mb-4 py-4 text-center relative flex-shrink-0"
           >
             <div className="absolute inset-0 bg-gradient-to-r from-transparent via-[#F0EFEA] to-transparent opacity-50" />
             <p className="font-serif text-lg text-[#8A9A86] italic tracking-widest relative z-10">
@@ -421,81 +450,39 @@ export default function TodayView({ store }: TodayViewProps) {
         )}
       </AnimatePresence>
 
-      <AnimatePresence>
-        {affirmations.length > 0 && (
-          <motion.div
-            key="affirmations-group"
-            ref={affSectionRef}
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-          >
-            <SectionLabel>Affirmations</SectionLabel>
-            {affirmations.map((task: Task) => (
-              <div key={task.id}>
-                <TaskRow
-                  task={task}
-                  category="affirmation"
-                  missedDays={getMissed(task.habitId)}
-                  onToggle={() => store.toggleTaskCompletion(task.id)}
-                />
-              </div>
-            ))}
-          </motion.div>
-        )}
+      <TodayTabBar tabs={tabs} activeIndex={tabIndex} onSelect={handleSelect} />
 
-        {mindsets.length > 0 && (
-          <motion.div
-            key="mindsets-group"
-            ref={mindSectionRef}
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-          >
-            <SectionLabel>Mindsets</SectionLabel>
-            {mindsets.map((task: Task) => (
-              <div key={task.id}>
-                <TaskRow
-                  task={task}
-                  category="mindset"
-                  missedDays={getMissed(task.habitId)}
-                  onToggle={() => store.toggleTaskCompletion(task.id)}
-                />
-              </div>
-            ))}
-          </motion.div>
-        )}
-
-        {habits.length > 0 && (
-          <motion.div
-            key="habits-group"
-            ref={habSectionRef}
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-          >
-            <SectionLabel>Habits</SectionLabel>
-            {habits.map((task: Task) => (
-              <div key={task.id}>
-                <TaskRow
-                  task={task}
-                  category="habit"
-                  missedDays={getMissed(task.habitId)}
-                  onToggle={() => store.toggleTaskCompletion(task.id)}
-                />
-              </div>
-            ))}
-          </motion.div>
-        )}
-
-        {tasksToday.length === 0 && (
-          <div key="empty-state" className="py-16 text-center">
-            <p className="font-serif italic text-sm text-[#B0ADA5]">
-              No practices yet. Set up your first in Practice.
-            </p>
-          </div>
-        )}
-      </AnimatePresence>
+      <TodayPager index={tabIndex} onIndexChange={handleSelect}>
+        {TODAY_TABS.map((meta) => {
+          const catTasks = tasksByKey[meta.key];
+          return (
+            <div
+              key={meta.key}
+              ref={sectionRefByKey[meta.key]}
+              className="pt-2 pb-6"
+            >
+              {catTasks.length === 0 ? (
+                <div className="py-16 text-center">
+                  <p className="font-serif italic text-sm text-[#B0ADA5]">
+                    Nothing here yet.
+                  </p>
+                </div>
+              ) : (
+                catTasks.map((task: Task) => (
+                  <div key={task.id}>
+                    <TaskRow
+                      task={task}
+                      category={meta.key}
+                      missedDays={getMissed(task.habitId)}
+                      onToggle={() => store.toggleTaskCompletion(task.id)}
+                    />
+                  </div>
+                ))
+              )}
+            </div>
+          );
+        })}
+      </TodayPager>
     </div>
   );
 }

@@ -22,33 +22,100 @@ test.describe('Demo mode (logged-in UI surrogate)', () => {
     });
     await page.goto(DEMO_URL);
     await page.waitForSelector('h1', { timeout: 15000 });
-    // Wait for all three sections + section labels to settle
-    await expect(page.getByText('Affirmations', { exact: true })).toBeVisible();
-    await expect(page.getByText('Mindsets', { exact: true })).toBeVisible();
-    await expect(page.getByText('Habits', { exact: true })).toBeVisible();
+    // Wait for the three Today sub-tabs + the default (Affirmations) list to settle.
+    await expect(page.getByRole('tab', { name: /Affirmations/ })).toBeVisible();
+    await expect(page.getByRole('tab', { name: /Mindsets/ })).toBeVisible();
+    await expect(page.getByRole('tab', { name: /Habits/ })).toBeVisible();
+    await expect(page.getByText('I am enough.')).toBeVisible();
     await page.waitForTimeout(400);
     expect(errors, `Unexpected console errors:\n${errors.join('\n')}`).toEqual([]);
   });
 
-  test('Today shows 3 sections: Affirmations + Mindsets + Habits', async ({ page }) => {
+  test('Today shows 3 sub-tabs (Affirm / Mindset / Habits), Affirmations default', async ({ page }) => {
     await page.goto(DEMO_URL);
     await page.waitForSelector('h1', { timeout: 15000 });
 
     // Brand visible in header
     await expect(page.locator('h1').first()).toContainText('Loop');
 
-    // Three section labels rendered (Affirmation → Mindset → Habit order)
-    await expect(page.getByText('Affirmations', { exact: true })).toBeVisible();
-    await expect(page.getByText('Mindsets', { exact: true })).toBeVisible();
-    await expect(page.getByText('Habits', { exact: true })).toBeVisible();
+    // Three sub-tabs rendered, in BE → THINK → DO order.
+    await expect(page.getByRole('tab', { name: /Affirmations/ })).toBeVisible();
+    await expect(page.getByRole('tab', { name: /Mindsets/ })).toBeVisible();
+    await expect(page.getByRole('tab', { name: /Habits/ })).toBeVisible();
 
-    // Preset content present
+    // Default landing tab is Affirmations: it is active, and its explanation +
+    // items show.
+    await expect(
+      page.getByRole('tab', { name: /Affirmations/ }),
+    ).toHaveAttribute('aria-selected', 'true');
+    await expect(page.getByText(/Identity/)).toBeVisible();
     await expect(page.getByText('I am enough.')).toBeVisible();
     await expect(page.getByText('Today, I choose calm.')).toBeVisible();
+  });
+
+  test('Selecting the Mindsets tab reveals its explanation and marks it active', async ({ page }) => {
+    await page.goto(DEMO_URL);
+    await page.waitForSelector('h1', { timeout: 15000 });
+
+    // Only the active module's italic explanation renders — a reliable signal
+    // the tab switched (all three lists stay mounted for swiping).
+    await expect(page.getByText(/Identity/)).toBeVisible();
+    await page.getByRole('tab', { name: /Mindsets/ }).click();
+
+    await expect(page.getByRole('tab', { name: /Mindsets/ })).toHaveAttribute(
+      'aria-selected',
+      'true',
+    );
+    await expect(page.getByText(/Belief/)).toBeVisible();
+    await expect(page.getByText(/Identity/)).toHaveCount(0);
+    // Mindset practices present.
     await expect(page.getByText('用行动构建自信')).toBeVisible();
     await expect(page.getByText('转移注意力')).toBeVisible();
-    await expect(page.getByText('散步 30 分钟')).toBeVisible();
-    await expect(page.getByText('读书 20 页')).toBeVisible();
+  });
+
+  test('Tab completion count updates when a task is toggled', async ({ page }) => {
+    await page.goto(DEMO_URL);
+    await page.waitForSelector('h1', { timeout: 15000 });
+
+    // Affirmations starts 0 of 2 done.
+    await expect(
+      page.getByRole('tab', { name: 'Affirmations, 0 of 2 done' }),
+    ).toBeVisible();
+
+    // Completing the first affirmation bumps the count to 1 of 2.
+    await page.getByRole('button', { name: 'Mark complete' }).first().click();
+    await expect(
+      page.getByRole('tab', { name: 'Affirmations, 1 of 2 done' }),
+    ).toBeVisible({ timeout: 3000 });
+  });
+
+  test('Remembers the last-viewed sub-tab across tab navigation', async ({ page }) => {
+    await page.goto(DEMO_URL);
+    await page.waitForSelector('h1', { timeout: 15000 });
+
+    // Switch to Mindsets, leave Today, then return.
+    await page.getByRole('tab', { name: /Mindsets/ }).click();
+    await expect(page.getByText(/Belief/)).toBeVisible();
+
+    await page.getByRole('button', { name: 'PRACTICE' }).click();
+    await expect(page.getByText('Decide what to repeat.')).toBeVisible();
+    await page.getByRole('button', { name: 'TODAY' }).click();
+
+    // Today reopens on the remembered Mindsets tab.
+    await expect(page.getByRole('tab', { name: /Mindsets/ })).toHaveAttribute(
+      'aria-selected',
+      'true',
+    );
+    await expect(page.getByText(/Belief/)).toBeVisible();
+  });
+
+  test('Completing every module still fires the all-day celebration banner', async ({ page }) => {
+    // allDone seeds every task complete → allCompleted must be true across all
+    // three modules (not just the active tab).
+    await page.goto(`${DEMO_URL}&allDone=1`);
+    await page.waitForSelector('h1', { timeout: 15000 });
+
+    await expect(page.getByText('All completed.')).toBeVisible({ timeout: 3000 });
   });
 
   test('Toggling a task checkbox flips its completed state', async ({ page }) => {
