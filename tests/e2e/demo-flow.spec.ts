@@ -86,6 +86,18 @@ test.describe('Demo mode (logged-in UI surrogate)', () => {
     });
   });
 
+  test('orphan task from a deleted habit never shows in Today', async ({ page }) => {
+    await page.goto(DEMO_URL);
+    await page.waitForSelector('h1', { timeout: 15000 });
+
+    // The demo seeds one orphan task (habitId points to a deleted mindset habit).
+    // Before the fix it leaked into the Habits section via the `?? "habit"`
+    // fallback; it must now be excluded from every section.
+    await expect(page.getByText('（已删）旧的 mindset')).toHaveCount(0);
+    // Sanity: real practices still render.
+    await expect(page.getByText('散步 30 分钟')).toBeVisible();
+  });
+
   test('History renders Current / Best / Active stat trio', async ({ page }) => {
     await page.goto(DEMO_URL);
     await page.waitForSelector('h1', { timeout: 15000 });

@@ -7,6 +7,7 @@ import { Task, MicroHabit, MicroHabitCategory } from '../types';
 import { cn } from '../lib/utils';
 import TrendChart from './TrendChart';
 import { calculateCurrentStreak } from '../lib/streak';
+import { excludeOrphanTasks } from '../lib/orphanTasks';
 
 type Filter = 'all' | 'habit' | 'mindset' | 'affirmation';
 
@@ -18,7 +19,9 @@ const FILTER_LABEL: Record<Filter, string> = {
 };
 
 export default function HistoryView({ store }: { store: any }) {
-  const { tasks, microHabits } = store.data;
+  const { tasks: rawTasks, microHabits } = store.data;
+  // 排除孤儿任务（对应习惯已删除的残留旧记录），让它们不进日历 / 统计 / 趋势 / Hall。
+  const tasks = excludeOrphanTasks(rawTasks, microHabits);
   const [currentMonth, setCurrentMonth] = useState(new Date());
   const [filter, setFilter] = useState<Filter>('all');
   const [selectedDate, setSelectedDate] = useState<string>(format(new Date(), 'yyyy-MM-dd'));

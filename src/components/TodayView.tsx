@@ -3,6 +3,7 @@ import { format } from "date-fns";
 import { motion, AnimatePresence } from "motion/react";
 import type { Options as ConfettiOptions } from "canvas-confetti";
 import { Task, MicroHabit, MicroHabitCategory } from "../types";
+import { excludeOrphanTasks } from "../lib/orphanTasks";
 
 // canvas-confetti dynamic-imported on first celebration so the package
 // (~10kB raw / ~4kB gzip) stays out of the initial bundle. The promise is
@@ -296,7 +297,10 @@ function TaskRow({ task, category, missedDays, onToggle }: TaskRowProps) {
 
 export default function TodayView({ store }: TodayViewProps) {
   const today = format(new Date(), "yyyy-MM-dd");
-  const tasksToday = store.data.tasks.filter((t: Task) => t.date === today);
+  // 排除孤儿任务（对应习惯已删除的残留旧记录），否则它们会被下方 `?? "habit"`
+  // 兜底误显示在 Habits 区（尤其被删掉的旧 mindset 任务）。
+  const validTasks = excludeOrphanTasks(store.data.tasks, store.data.microHabits);
+  const tasksToday = validTasks.filter((t: Task) => t.date === today);
 
   const habitCategoryMap = new Map<string, MicroHabitCategory>();
   const habitById = new Map<string, MicroHabit>();
@@ -305,7 +309,7 @@ export default function TodayView({ store }: TodayViewProps) {
     habitById.set(h.id, h);
   });
 
-  const allTasks: Task[] = store.data.tasks;
+  const allTasks: Task[] = validTasks;
   const missedDaysByHabitId = new Map<string, number>();
   store.data.microHabits.forEach((h: MicroHabit) => {
     missedDaysByHabitId.set(h.id, daysSinceLastCompletion(h, today, allTasks));
@@ -332,7 +336,7 @@ export default function TodayView({ store }: TodayViewProps) {
     .filter((t: Task) => habitCategoryMap.get(t.habitId) === "mindset")
     .sort(sortByHabitOrder);
   const habits = tasksToday
-    .filter((t: Task) => (habitCategoryMap.get(t.habitId) ?? "habit") === "habit")
+    .filter((t: Task) => habitCategoryMap.get(t.habitId) === "habit")
     .sort(sortByHabitOrder);
 
   const allCompleted =

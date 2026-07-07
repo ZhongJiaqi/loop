@@ -59,6 +59,17 @@ function makeInitial(allDone = false) {
     }
   }
 
+  // 脏数据回归 fixture：一条"孤儿"任务 —— habitId 指向一个已删除的旧 mindset 习惯。
+  // 它绝不该出现在 Today / History 任何区块（由 excludeOrphanTasks 排除）。
+  tasks.push({
+    id: `orphan-mindset_${today}`,
+    title: '（已删）旧的 mindset',
+    date: today,
+    completed: true,
+    habitId: 'deleted-mindset-habit',
+    userId: DEMO_USER_ID,
+  });
+
   return { habits, tasks };
 }
 
