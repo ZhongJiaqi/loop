@@ -4,6 +4,7 @@ import { MicroHabit, Task, MicroHabitCategory } from './types';
 import { db, auth } from './firebase';
 import { collection, doc, getDoc, setDoc, deleteDoc, updateDoc, onSnapshot, query, writeBatch } from 'firebase/firestore';
 import { nextSortIndex, reorderPlan } from './lib/reorder';
+import { tasksForHabit } from './lib/habitTasks';
 
 export async function migrateMicroHabitCategory(
   habit: MicroHabit,
@@ -363,9 +364,10 @@ export function useStore(userId?: string) {
     const path = `users/${userId}/microHabits/${id}`;
     try {
       await deleteDoc(doc(db, path));
-      
-      // Remove uncompleted tasks for today and future
-      const tasksToDelete = data.tasks.filter(t => t.habitId === id && !t.completed);
+
+      // Remove ALL tasks for this habit — completed included. 保留已完成记录会残留
+      // 成孤儿脏数据（habitId 无对应习惯）；删习惯就该把它的数据删干净。
+      const tasksToDelete = tasksForHabit(data.tasks, id);
       for (const task of tasksToDelete) {
         const taskPath = `users/${userId}/tasks/${task.id}`;
         await deleteDoc(doc(db, taskPath)).catch(error => handleFirestoreError(error, OperationType.DELETE, taskPath));
