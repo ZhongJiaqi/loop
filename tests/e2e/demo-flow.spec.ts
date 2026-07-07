@@ -86,18 +86,45 @@ test.describe('Demo mode (logged-in UI surrogate)', () => {
     });
   });
 
-  test('History tab renders Active Practices stat', async ({ page }) => {
+  test('History renders Current / Best / Active stat trio', async ({ page }) => {
     await page.goto(DEMO_URL);
     await page.waitForSelector('h1', { timeout: 15000 });
 
     await page.getByRole('button', { name: /HISTORY/i }).click();
 
-    // The History tab shows the "Active Practices" stat label.
-    // The label is rendered as <span>Active<br/>Practices</span>, so its
-    // textContent collapses to "ActivePractices" — match by regex substring.
-    await expect(page.locator('span').filter({ hasText: /Practices/ }).first()).toBeVisible({
-      timeout: 5000,
-    });
+    // Three stats sit side by side. Labels render as <span>X<br/>Y</span>, so
+    // textContent collapses (e.g. "CurrentStreak") — match by regex substring.
+    // Current Streak must come before Best Streak in the DOM.
+    const current = page.locator('span').filter({ hasText: /CurrentStreak/ }).first();
+    const best = page.locator('span').filter({ hasText: /BestStreak/ }).first();
+    await expect(current).toBeVisible({ timeout: 5000 });
+    await expect(best).toBeVisible();
+    await expect(page.locator('span').filter({ hasText: /Practices/ }).first()).toBeVisible();
+  });
+
+  test('History shows Completion Trend chart with working range toggle', async ({ page }) => {
+    await page.goto(DEMO_URL);
+    await page.waitForSelector('h1', { timeout: 15000 });
+
+    await page.getByRole('button', { name: /HISTORY/i }).click();
+
+    // Trend chart section header + the stock-style range toggle are present.
+    await expect(page.getByText('Completion Trend')).toBeVisible({ timeout: 5000 });
+    const chart = page.locator('svg[aria-label*="趋势"]');
+    await expect(chart).toBeVisible();
+
+    // All six stock-style ranges are present.
+    for (const label of ['1W', '1M', '3M', '6M', '1Y', 'ALL']) {
+      await expect(page.getByRole('button', { name: label, exact: true })).toBeVisible();
+    }
+
+    // Default range is 1M (30 days). Switching re-scopes the series —
+    // the aria-label encodes the active range, so it must change.
+    await expect(chart).toHaveAttribute('aria-label', /范围 1m/);
+    await page.getByRole('button', { name: '1W', exact: true }).click();
+    await expect(chart).toHaveAttribute('aria-label', /范围 1w/);
+    await page.getByRole('button', { name: '1Y', exact: true }).click();
+    await expect(chart).toHaveAttribute('aria-label', /范围 1y/);
   });
 
   test('Calendar day tap opens detail sheet showing that day\'s practices', async ({ page }) => {

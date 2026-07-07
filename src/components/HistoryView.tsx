@@ -5,6 +5,8 @@ import { motion, AnimatePresence, PanInfo, useDragControls } from 'motion/react'
 import { ChevronLeft, ChevronRight } from 'lucide-react';
 import { Task, MicroHabit, MicroHabitCategory } from '../types';
 import { cn } from '../lib/utils';
+import TrendChart from './TrendChart';
+import { calculateCurrentStreak } from '../lib/streak';
 
 type Filter = 'all' | 'habit' | 'mindset' | 'affirmation';
 
@@ -52,46 +54,29 @@ export default function HistoryView({ store }: { store: any }) {
     .sort();
 
   let bestStreak = 0;
-  let currentStreak = 0;
+  let run = 0;
   let previousDate: Date | null = null;
 
   for (const dateStr of perfectDates) {
     const dateObj = parseISO(dateStr);
     if (!previousDate) {
-      currentStreak = 1;
+      run = 1;
     } else {
       const diffDays = differenceInDays(dateObj, previousDate);
       if (diffDays === 1) {
-        currentStreak++;
+        run++;
       } else {
-        currentStreak = 1;
+        run = 1;
       }
     }
-    if (currentStreak > bestStreak) {
-      bestStreak = currentStreak;
+    if (run > bestStreak) {
+      bestStreak = run;
     }
     previousDate = dateObj;
   }
 
-  // Calculate Weekly Data
-  const today = new Date();
-  const weekStartThisWeek = startOfWeek(today);
-  const weekEndThisWeek = endOfWeek(today);
-  const thisWeekDays = eachDayOfInterval({ start: weekStartThisWeek, end: weekEndThisWeek });
-
-  const weeklyData = thisWeekDays.map(day => {
-    const dateStr = format(day, 'yyyy-MM-dd');
-    const dayTasks = filteredTasks.filter((t: Task) => t.date === dateStr);
-    const total = dayTasks.length;
-    const completed = dayTasks.filter((t: Task) => t.completed).length;
-    const percentage = total > 0 ? Math.round((completed / total) * 100) : 0;
-    return {
-      dayLabel: format(day, 'EEE'),
-      percentage,
-      total,
-      completed
-    };
-  });
+  // 当前连续天数（今天/昨天锚定），与 Best Streak 并列，放在其前面
+  const currentStreak = calculateCurrentStreak(perfectDates, new Date());
 
   const nextMonth = () => setCurrentMonth(addMonths(currentMonth, 1));
   const prevMonth = () => setCurrentMonth(subMonths(currentMonth, 1));
@@ -208,7 +193,11 @@ export default function HistoryView({ store }: { store: any }) {
       />
 
       {/* Stats Overview */}
-      <div className="grid grid-cols-2 gap-4 mb-16">
+      <div className="grid grid-cols-3 gap-4 mb-16">
+        <div className="flex flex-col items-center justify-center text-center">
+          <span className="text-4xl font-serif font-light text-[#1A1A1A] mb-3">{currentStreak}</span>
+          <span className="text-[9px] font-medium text-[#A09E9A] uppercase tracking-[0.2em]">Current<br/>Streak</span>
+        </div>
         <div className="flex flex-col items-center justify-center text-center">
           <span className="text-4xl font-serif font-light text-[#1A1A1A] mb-3">{bestStreak}</span>
           <span className="text-[9px] font-medium text-[#A09E9A] uppercase tracking-[0.2em]">Best<br/>Streak</span>
@@ -219,28 +208,9 @@ export default function HistoryView({ store }: { store: any }) {
         </div>
       </div>
 
-      {/* Weekly Progress */}
+      {/* Completion Trend — 每日完成任务数的股票走势式曲线，带 1W/1M/3M/ALL 范围切换 */}
       <div className="mb-16">
-        <h2 className="text-[10px] font-medium text-[#A09E9A] uppercase tracking-[0.2em] mb-6 text-center">
-          This Week's Progress
-        </h2>
-        <div className="flex items-end justify-between h-32 px-2 gap-2">
-          {weeklyData.map(data => (
-            <div key={data.dayLabel} className="flex flex-col items-center gap-3 flex-1 h-full">
-              <div className="w-full max-w-[28px] flex-1 bg-[#F0EFEA] rounded-t-md relative flex items-end justify-center overflow-hidden">
-                <motion.div
-                  initial={{ height: 0 }}
-                  animate={{ height: `${data.percentage}%` }}
-                  transition={{ duration: 1, ease: "easeOut" }}
-                  className="w-full bg-[#8A9A86] rounded-t-md"
-                />
-              </div>
-              <span className="text-[9px] font-medium text-[#A09E9A] uppercase tracking-widest">
-                {data.dayLabel}
-              </span>
-            </div>
-          ))}
-        </div>
+        <TrendChart tasks={filteredTasks} />
       </div>
 
       {/* The 21-Day Hall — Hall is reserved for Habits only. Affirmations and
