@@ -109,6 +109,36 @@ test.describe('Demo mode (logged-in UI surrogate)', () => {
     await expect(page.getByText(/Belief/)).toBeVisible();
   });
 
+  test('Returning to Today lands at the top, not scrolled into blank space', async ({ page }) => {
+    // Regression: Today used to collapse to content height and let the window
+    // scroll, so returning from a scrolled tall tab retained that scroll and
+    // dumped you into blank space below a long list. Today is now bounded and
+    // scrolls its list internally, so the window can't retain a scroll offset.
+    await page.setViewportSize({ width: 390, height: 600 });
+    await page.goto(DEMO_URL);
+    await page.waitForSelector('h1', { timeout: 15000 });
+
+    // Go to History (tall) and scroll the window to the bottom.
+    await page.getByRole('button', { name: /HISTORY/i }).click();
+    await page.getByText('Completion Trend').waitFor({ timeout: 5000 });
+    await page.evaluate(() => window.scrollTo(0, 99999));
+
+    // Back to Today.
+    await page.getByRole('button', { name: /TODAY/i }).click();
+    await expect(page.getByRole('tab', { name: /Affirmations/ })).toBeVisible();
+
+    const state = await page.evaluate(() => ({
+      scrollY: window.scrollY,
+      overflow:
+        document.documentElement.scrollHeight - window.innerHeight,
+    }));
+    // Window is at the top and Today does not grow the document (bounded view).
+    expect(state.scrollY).toBe(0);
+    expect(state.overflow).toBeLessThanOrEqual(1);
+    // The tagline / tab bar are on-screen (not scrolled off).
+    await expect(page.getByText('You are what you repeatedly do.')).toBeVisible();
+  });
+
   test('Completing every module still fires the all-day celebration banner', async ({ page }) => {
     // allDone seeds every task complete → allCompleted must be true across all
     // three modules (not just the active tab).

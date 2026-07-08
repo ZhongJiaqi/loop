@@ -1,5 +1,6 @@
 import {
   useEffect,
+  useLayoutEffect,
   useRef,
   useState,
   useCallback,
@@ -12,6 +13,7 @@ import { Task, MicroHabit, MicroHabitCategory } from "../types";
 import { excludeOrphanTasks } from "../lib/orphanTasks";
 import { TODAY_TABS, moduleStats, type TodayTabKey } from "../lib/todayTabs";
 import { readLastTab, writeLastTab } from "../lib/lastTab";
+import { computeFillHeight } from "../lib/fillHeight";
 import TodayTabBar, { type TodayTab } from "./TodayTabBar";
 import TodayPager from "./TodayPager";
 
@@ -422,8 +424,40 @@ export default function TodayView({ store }: TodayViewProps) {
     stats: moduleStats(tasksByKey[meta.key]),
   }));
 
+  // Bounded height so the pager scrolls each module list internally instead of
+  // growing the document (the app scrolls the window, not `<main>`; with a plain
+  // `h-full` this view collapses to content height and re-entering Today keeps
+  // the previous tab's window scroll → lands mid/bottom of a long list).
+  // Fill from this view's top down to `<main>`'s bottom padding (the fixed
+  // bottom-nav clearance); re-measure on mount, resize, and orientation change.
+  const rootRef = useRef<HTMLDivElement>(null);
+  const [fillHeight, setFillHeight] = useState<number | null>(null);
+  useLayoutEffect(() => {
+    const root = rootRef.current;
+    const main = root?.closest("main");
+    if (!main) return;
+    const recompute = () => {
+      const top = main.getBoundingClientRect().top;
+      const reserve = parseFloat(getComputedStyle(main).paddingBottom) || 0;
+      setFillHeight(computeFillHeight(window.innerHeight, top, reserve));
+    };
+    window.scrollTo(0, 0); // land at the top when (re)entering Today
+    recompute();
+    // One more after paint, in case chrome above (prompt/banner) settled late.
+    const raf = requestAnimationFrame(recompute);
+    window.addEventListener("resize", recompute);
+    return () => {
+      cancelAnimationFrame(raf);
+      window.removeEventListener("resize", recompute);
+    };
+  }, []);
+
   return (
-    <div className="h-full flex flex-col pt-4">
+    <div
+      ref={rootRef}
+      className="flex flex-col pt-4"
+      style={{ height: fillHeight ?? undefined }}
+    >
       <p className="text-xs text-[#8C8C8C] font-light tracking-wide italic mb-5 flex-shrink-0">
         You are what you repeatedly do.
       </p>
