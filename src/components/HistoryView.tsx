@@ -9,43 +9,21 @@ import TrendChart from './TrendChart';
 import { calculateCurrentStreak } from '../lib/streak';
 import { excludeOrphanTasks } from '../lib/orphanTasks';
 
-type Filter = 'all' | 'habit' | 'mindset' | 'affirmation';
-
-const FILTER_LABEL: Record<Filter, string> = {
-  all: 'All',
-  habit: 'Habits',
-  mindset: 'Mindsets',
-  affirmation: 'Affirmations',
-};
-
 export default function HistoryView({ store }: { store: any }) {
   const { tasks: rawTasks, microHabits } = store.data;
   // 排除孤儿任务（对应习惯已删除的残留旧记录），让它们不进日历 / 统计 / 趋势 / Hall。
   const tasks = excludeOrphanTasks(rawTasks, microHabits);
   const [currentMonth, setCurrentMonth] = useState(new Date());
-  const [filter, setFilter] = useState<Filter>('all');
   const [selectedDate, setSelectedDate] = useState<string>(format(new Date(), 'yyyy-MM-dd'));
   const [sheetOpen, setSheetOpen] = useState(false);
 
-  // build category map (habitId → category)
-  const habitCategoryMap = new Map<string, MicroHabitCategory>();
-  microHabits.forEach((h: MicroHabit) =>
-    habitCategoryMap.set(h.id, h.category ?? 'habit')
-  );
-
-  // apply filter to tasks
-  const filteredTasks = filter === 'all'
-    ? tasks
-    : tasks.filter((t: Task) => habitCategoryMap.get(t.habitId) === filter);
-
-  // Calculate stats — Active Practices, filter-aware
-  const activeFilteredHabits = filter === 'all'
-    ? microHabits.filter((h: MicroHabit) => h.active)
-    : microHabits.filter((h: MicroHabit) => h.active && (h.category ?? 'habit') === filter);
-  const activePracticesCount = activeFilteredHabits.length;
+  // Active Practices — all currently-active definitions.
+  const activePracticesCount = microHabits.filter(
+    (h: MicroHabit) => h.active,
+  ).length;
 
   // Calculate Best Streak
-  const tasksByDate = filteredTasks.reduce((acc: any, task: Task) => {
+  const tasksByDate = tasks.reduce((acc: any, task: Task) => {
     if (!acc[task.date]) acc[task.date] = { total: 0, completed: 0 };
     acc[task.date].total++;
     if (task.completed) acc[task.date].completed++;
@@ -96,24 +74,9 @@ export default function HistoryView({ store }: { store: any }) {
     <div className="pb-12 pt-4">
       {/* Calendar View */}
       <div className="mb-16">
-        <div className="flex items-center justify-between mb-3">
-          <h2 className="text-[10px] font-medium text-[#A09E9A] uppercase tracking-[0.2em]">
-            History
-          </h2>
-          <div className="flex items-center gap-3 text-[10px] tracking-[0.15em] uppercase">
-            {(['all', 'habit', 'mindset', 'affirmation'] as Filter[]).map(f => (
-              <button
-                key={f}
-                onClick={() => setFilter(f)}
-                className={`transition-colors ${
-                  filter === f ? 'text-[#1A1A1A] font-medium' : 'text-[#A09E9A] hover:text-[#5C5A56]'
-                }`}
-              >
-                {FILTER_LABEL[f]}
-              </button>
-            ))}
-          </div>
-        </div>
+        <h2 className="text-[10px] font-medium text-[#A09E9A] uppercase tracking-[0.2em] mb-3">
+          History
+        </h2>
 
         <div className="flex items-center justify-end gap-4 mb-8">
           <button onClick={prevMonth} className="text-[#A09E9A] hover:text-[#1A1A1A] transition-colors">
@@ -138,7 +101,7 @@ export default function HistoryView({ store }: { store: any }) {
         <div className="grid grid-cols-7 gap-y-4">
           {calendarDays.map(day => {
             const dateStr = format(day, 'yyyy-MM-dd');
-            const dayTasks = filteredTasks.filter((t: Task) => t.date === dateStr);
+            const dayTasks = tasks.filter((t: Task) => t.date === dateStr);
             const totalCount = dayTasks.length;
             const completedCount = dayTasks.filter((t: Task) => t.completed).length;
             const allDone = totalCount > 0 && completedCount === totalCount;
@@ -191,7 +154,7 @@ export default function HistoryView({ store }: { store: any }) {
         open={sheetOpen}
         onClose={() => setSheetOpen(false)}
         selectedDate={selectedDate}
-        tasks={filteredTasks}
+        tasks={tasks}
         microHabits={microHabits}
       />
 
@@ -213,13 +176,12 @@ export default function HistoryView({ store }: { store: any }) {
 
       {/* Completion Trend — 每日完成任务数的股票走势式曲线，带 1W/1M/3M/ALL 范围切换 */}
       <div className="mb-16">
-        <TrendChart tasks={filteredTasks} />
+        <TrendChart tasks={tasks} />
       </div>
 
       {/* The 21-Day Hall — Hall is reserved for Habits only. Affirmations and
           Mindsets are心智锚定, not behavior-formation, so they don't enter the
-          Hall. When the filter is set to Affirmations/Mindsets, the Hall shows
-          its empty state (because no entries survive the habit-only filter). */}
+          Hall. */}
       <div>
         <h2 className="text-[10px] font-medium text-[#A09E9A] uppercase tracking-[0.2em] mb-6 text-center">
           The 21-Day Hall
@@ -230,8 +192,6 @@ export default function HistoryView({ store }: { store: any }) {
             .filter((h: MicroHabit) => {
               // Hall only counts habits — affirmations/mindsets excluded
               if ((h.category ?? 'habit') !== 'habit') return false;
-              // Respect filter — when Affirmations/Mindsets is selected, Hall is empty
-              if (filter !== 'all' && filter !== 'habit') return false;
               const completedCount = tasks.filter(
                 (t: Task) => t.habitId === h.id && t.completed,
               ).length;
