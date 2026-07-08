@@ -1,6 +1,11 @@
 // @vitest-environment jsdom
 import { describe, it, expect, beforeEach } from 'vitest';
-import { readLastTab, writeLastTab, LAST_TAB_STORAGE_KEY } from '../src/lib/lastTab';
+import {
+  readLastTab,
+  writeLastTab,
+  LAST_TAB_STORAGE_KEY,
+  PRACTICE_TAB_STORAGE_KEY,
+} from '../src/lib/lastTab';
 
 /**
  * vitest 4.x's jsdom sometimes ships an incomplete localStorage. Install a real
@@ -47,5 +52,18 @@ describe('lastTab persistence', () => {
     writeLastTab('habit');
     expect(localStorage.getItem(LAST_TAB_STORAGE_KEY)).toBe('habit');
     expect(LAST_TAB_STORAGE_KEY).toBe('loop.today.tab');
+  });
+
+  it('round-trips under a caller-supplied storage key (Practice)', () => {
+    expect(PRACTICE_TAB_STORAGE_KEY).toBe('loop.practice.tab');
+    writeLastTab('habit', PRACTICE_TAB_STORAGE_KEY);
+    expect(readLastTab(PRACTICE_TAB_STORAGE_KEY)).toBe('habit');
+  });
+
+  it('keeps the Today and Practice tabs independent', () => {
+    writeLastTab('mindset'); // Today (default key)
+    writeLastTab('habit', PRACTICE_TAB_STORAGE_KEY); // Practice
+    expect(readLastTab()).toBe('mindset');
+    expect(readLastTab(PRACTICE_TAB_STORAGE_KEY)).toBe('habit');
   });
 });

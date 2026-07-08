@@ -300,33 +300,55 @@ test.describe('Demo mode (logged-in UI surrogate)', () => {
     expect(structure!.scrollEl!.scrollTopAfter).toBeGreaterThan(0);
   });
 
-  test('Practice page reorders Habits via keyboard, Today follows new order', async ({ page }) => {
-    // Demo seeds: Habits section is [散步 30 分钟, 读书 20 页] (sortIndex 0, 1).
-    // Move "散步" down one slot using @dnd-kit's keyboard sensor:
-    // focus drag handle → Space (lift) → ArrowDown (move) → Space (drop).
-    // Expected after: [读书 20 页, 散步 30 分钟] on Practice AND on Today.
+  test('Practice shows 3 sub-tabs with item counts and switches on tap', async ({ page }) => {
     await page.goto(DEMO_URL);
     await page.waitForSelector('h1', { timeout: 15000 });
 
     await page.getByRole('button', { name: 'PRACTICE' }).click();
     await expect(page.getByText('Decide what to repeat.')).toBeVisible();
 
-    // Sanity: starting order on Practice.
-    const practiceTitlesBefore = await page
-      .locator('main span.font-serif')
-      .allTextContents();
-    const habitsBefore = practiceTitlesBefore.filter(t =>
-      t.includes('散步') || t.includes('读书'),
-    );
-    expect(habitsBefore).toEqual(['散步 30 分钟', '读书 20 页']);
+    // Three sub-tabs; demo seeds 2 of each → count badge "2 items".
+    await expect(page.getByRole('tab', { name: 'Affirmations, 2 items' })).toBeVisible();
+    await expect(page.getByRole('tab', { name: 'Mindsets, 2 items' })).toBeVisible();
+    await expect(page.getByRole('tab', { name: 'Habits, 2 items' })).toBeVisible();
 
-    // Activator is a <button aria-label="Reorder item N..."> with the ordinal.
-    // 6 activators in DOM order (Practice page sections):
-    //   a1(0), a2(1), m1(2: 用行动构建自信), m2(3: 转移注意力), h1(4: 散步), h2(5: 读书)
-    // Focus the 散步 handle (nth=4) and use @dnd-kit's keyboard sensor.
+    // Default tab = Affirmations: its definitions show, mindsets do not (only the
+    // active module renders — unlike Today, Practice does not keep all mounted).
+    await expect(
+      page.getByRole('tab', { name: /Affirmations/ }),
+    ).toHaveAttribute('aria-selected', 'true');
+    await expect(page.getByText('I am enough.')).toBeVisible();
+    await expect(page.getByText('用行动构建自信')).toHaveCount(0);
+
+    // Tap Mindsets → its definitions render, add-affirmation button gone.
+    await page.getByRole('tab', { name: /Mindsets/ }).click();
+    await expect(page.getByText('用行动构建自信')).toBeVisible();
+    await expect(page.getByText('转移注意力')).toBeVisible();
+    await expect(page.getByRole('button', { name: /Add Mindset/i })).toBeVisible();
+  });
+
+  test('Practice reorders Habits via keyboard, Today follows new order', async ({ page }) => {
+    // Demo seeds: Habits are [散步 30 分钟, 读书 20 页] (sortIndex 0, 1).
+    // Practice now shows one module at a time, so open the Habits tab first.
+    await page.goto(DEMO_URL);
+    await page.waitForSelector('h1', { timeout: 15000 });
+
+    await page.getByRole('button', { name: 'PRACTICE' }).click();
+    await expect(page.getByText('Decide what to repeat.')).toBeVisible();
+    await page.getByRole('tab', { name: /Habits/ }).click();
+    // Wait for the tab-switch transition to settle on the Habits section.
+    await expect(page.getByText('散步 30 分钟')).toBeVisible();
+
+    // Sanity: starting order (only the Habits section renders now).
+    const before = (await page.locator('main span.font-serif').allTextContents())
+      .filter(t => t.includes('散步') || t.includes('读书'));
+    expect(before).toEqual(['散步 30 分钟', '读书 20 页']);
+
+    // Two activators now (h1 散步 = 0, h2 读书 = 1). Move 散步 down one slot via
+    // @dnd-kit's keyboard sensor: Space (lift) → ArrowDown → Space (drop).
     const handles = page.locator('button[aria-label^="Reorder item"]');
-    await expect(handles).toHaveCount(6);
-    await handles.nth(4).focus();
+    await expect(handles).toHaveCount(2);
+    await handles.nth(0).focus();
     await page.keyboard.press('Space');
     await page.waitForTimeout(150);
     await page.keyboard.press('ArrowDown');
@@ -335,15 +357,11 @@ test.describe('Demo mode (logged-in UI surrogate)', () => {
     await page.waitForTimeout(400); // allow @dnd-kit drop + state update
 
     // Practice: order swapped.
-    const practiceTitlesAfter = await page
-      .locator('main span.font-serif')
-      .allTextContents();
-    const habitsAfter = practiceTitlesAfter.filter(t =>
-      t.includes('散步') || t.includes('读书'),
-    );
-    expect(habitsAfter).toEqual(['读书 20 页', '散步 30 分钟']);
+    const after = (await page.locator('main span.font-serif').allTextContents())
+      .filter(t => t.includes('散步') || t.includes('读书'));
+    expect(after).toEqual(['读书 20 页', '散步 30 分钟']);
 
-    // Today: same order propagates.
+    // Today: same order propagates (all module pages stay mounted there).
     await page.getByRole('button', { name: 'TODAY' }).click();
     await expect(page.getByText('You are what you repeatedly do.')).toBeVisible();
     const todayTitles = await page

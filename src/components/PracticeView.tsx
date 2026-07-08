@@ -1,4 +1,4 @@
-import { useState, useRef, FormEvent, useMemo } from 'react';
+import { useState, useRef, useCallback, useEffect, FormEvent, useMemo } from 'react';
 import { Plus } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import {
@@ -19,17 +19,20 @@ import {
 } from '@dnd-kit/sortable';
 import { MicroHabit } from '../types';
 import { sortByOrder } from '../lib/reorder';
+import { TODAY_TABS, type TodayTabKey } from '../lib/todayTabs';
+import { readLastTab, writeLastTab, PRACTICE_TAB_STORAGE_KEY } from '../lib/lastTab';
+import { useFillHeight } from '../lib/fillHeight';
+import ModuleTabBar, { type ModuleTab } from './ModuleTabBar';
 import SwipeActions from './SwipeActions';
 import SortableHabitItem from './SortableHabitItem';
 
-type Category = 'habit' | 'affirmation' | 'mindset';
+type Category = TodayTabKey;
 
 interface PracticeViewProps {
   store: any;
 }
 
 interface CategorySectionProps {
-  title: string;
   category: Category;
   emptyText: string;
   habits: MicroHabit[];
@@ -48,8 +51,13 @@ const CATEGORY_ADD_LABEL: Record<Category, string> = {
   habit: 'Add Habit',
 };
 
+const CATEGORY_EMPTY_TEXT: Record<Category, string> = {
+  affirmation: 'Words you live by, repeated.',
+  mindset: 'Mental models you return to.',
+  habit: 'The beginning of a new chapter.',
+};
+
 function CategorySection({
-  title,
   category,
   emptyText,
   habits,
@@ -101,11 +109,7 @@ function CategorySection({
   const sortableIds = habits.map(h => h.id);
 
   return (
-    <div className="mb-10">
-      <div className="text-[10px] font-medium text-[#A09E9A] uppercase tracking-[0.2em] mb-4">
-        {title}
-      </div>
-
+    <div>
       <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
         <SortableContext items={sortableIds} strategy={verticalListSortingStrategy}>
           <AnimatePresence mode="popLayout">
@@ -236,38 +240,83 @@ export default function PracticeView({ store }: PracticeViewProps) {
     () => sortByOrder(allHabits.filter(h => (h.category ?? 'habit') === 'habit')),
     [allHabits],
   );
+  const habitsByKey: Record<Category, MicroHabit[]> = {
+    affirmation: affirmations,
+    mindset: mindsets,
+    habit: habits,
+  };
+
+  // ── Sub-tab state ────────────────────────────────────────────────────────
+  // One module's definitions at a time; tap a tab to switch. Remembered under a
+  // key independent from Today's (`loop.practice.tab`).
+  const [tabIndex, setTabIndex] = useState<number>(() => {
+    const i = TODAY_TABS.findIndex((t) => t.key === readLastTab(PRACTICE_TAB_STORAGE_KEY));
+    return i === -1 ? 0 : i;
+  });
+  const handleSelect = useCallback((i: number) => {
+    setTabIndex(i);
+    const key = TODAY_TABS[i]?.key;
+    if (key) writeLastTab(key, PRACTICE_TAB_STORAGE_KEY);
+  }, []);
+
+  // Tabs: label + item count; underline is a full selection bar (Practice has no
+  // daily-completion progress, unlike Today).
+  const tabs: ModuleTab[] = TODAY_TABS.map((meta) => {
+    const count = habitsByKey[meta.key].length;
+    return {
+      key: meta.key,
+      label: meta.label,
+      sub: meta.sub,
+      color: meta.color,
+      badge: String(count),
+      fillPct: 100,
+      ariaLabel: `${meta.name}, ${count} ${count === 1 ? 'item' : 'items'}`,
+    };
+  });
+
+  // Bounded height + internal scroll (see useFillHeight) so the tab bar stays
+  // fixed while the list scrolls, matching Today.
+  const rootRef = useRef<HTMLDivElement>(null);
+  const fillHeight = useFillHeight(rootRef);
+
+  // Reset the list's scroll position to the top when switching modules.
+  const contentRef = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    if (contentRef.current) contentRef.current.scrollTop = 0;
+  }, [tabIndex]);
+
+  const activeCategory = TODAY_TABS[tabIndex].key;
 
   return (
-    <div className="pb-12">
-      <div className="mb-10 pt-4">
-        <p className="text-xs text-[#8C8C8C] leading-relaxed font-light tracking-wide italic">
-          Decide what to repeat.
-        </p>
+    <div
+      ref={rootRef}
+      className="flex flex-col pt-4"
+      style={{ height: fillHeight ?? undefined }}
+    >
+      <p className="text-xs text-[#8C8C8C] font-light tracking-wide italic mb-5 flex-shrink-0">
+        Decide what to repeat.
+      </p>
+
+      <ModuleTabBar tabs={tabs} activeIndex={tabIndex} onSelect={handleSelect} />
+
+      <div ref={contentRef} className="flex-1 min-h-0 overflow-y-auto pt-2 pb-6">
+        <AnimatePresence mode="wait">
+          <motion.div
+            key={activeCategory}
+            initial={{ opacity: 0, y: 8 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -8 }}
+            transition={{ duration: 0.25, ease: [0.23, 1, 0.32, 1] }}
+          >
+            <CategorySection
+              category={activeCategory}
+              emptyText={CATEGORY_EMPTY_TEXT[activeCategory]}
+              habits={habitsByKey[activeCategory]}
+              store={store}
+            />
+          </motion.div>
+        </AnimatePresence>
       </div>
-
-      <CategorySection
-        title="Affirmations"
-        category="affirmation"
-        emptyText="Words you live by, repeated."
-        habits={affirmations}
-        store={store}
-      />
-
-      <CategorySection
-        title="Mindsets"
-        category="mindset"
-        emptyText="Mental models you return to."
-        habits={mindsets}
-        store={store}
-      />
-
-      <CategorySection
-        title="Habits"
-        category="habit"
-        emptyText="The beginning of a new chapter."
-        habits={habits}
-        store={store}
-      />
     </div>
   );
 }

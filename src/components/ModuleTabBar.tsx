@@ -1,43 +1,45 @@
-import type { TodayTabMeta, ModuleStats } from '../lib/todayTabs';
-
-export interface TodayTab {
-  meta: TodayTabMeta;
-  stats: ModuleStats;
+export interface ModuleTab {
+  key: string;
+  label: string; // short display label (uppercased in UI): "Affirm"
+  sub: string; // italic serif explanation row
+  color: string; // semantic accent hex
+  badge: string; // right-aligned text — Today: "0/2" progress, Practice: "5" count
+  fillPct: number; // underline fill % — Today: completion %, Practice: 100 (selection bar)
+  ariaLabel: string; // accessible name for the tab button
 }
 
-interface TodayTabBarProps {
-  tabs: TodayTab[];
+interface ModuleTabBarProps {
+  tabs: ModuleTab[];
   activeIndex: number;
   onSelect: (index: number) => void;
 }
 
 /**
- * B3 sub-tab bar for the Today page. One row of three tabs (Affirm / Mindset /
- * Habits); each tab's bottom underline doubles as a progress bar filled with
- * the module's semantic color to the module's completion percentage. Below the
- * bar sits an italic serif explanation of the active module (Identity / Belief
- * / Action). Presentational only — parent owns the active index + selection.
+ * B3 sub-tab bar shared by Today and Practice. One row of three tabs (Affirm /
+ * Mindset / Habits); each tab's bottom underline is filled with the module's
+ * semantic color — a daily-completion progress bar on Today, a full selection
+ * bar on Practice. Below the bar sits an italic serif explanation of the active
+ * module. Presentational only — the parent owns the active index + selection.
  */
-export default function TodayTabBar({
+export default function ModuleTabBar({
   tabs,
   activeIndex,
   onSelect,
-}: TodayTabBarProps) {
+}: ModuleTabBarProps) {
   const active = tabs[activeIndex];
 
   return (
     <div className="flex-shrink-0">
-      <div className="flex gap-5" role="tablist" aria-label="Today modules">
+      <div className="flex gap-5" role="tablist" aria-label="Modules">
         {tabs.map((tab, i) => {
           const selected = i === activeIndex;
-          const { meta, stats } = tab;
           return (
             <button
-              key={meta.key}
+              key={tab.key}
               type="button"
               role="tab"
               aria-selected={selected}
-              aria-label={`${meta.name}, ${stats.done} of ${stats.total} done`}
+              aria-label={tab.ariaLabel}
               onClick={() => onSelect(i)}
               className="relative flex-1 pb-3 text-left cursor-pointer"
             >
@@ -47,24 +49,24 @@ export default function TodayTabBar({
                     selected ? 'text-[#1A1A1A]' : 'text-[#C8C5BD]'
                   }`}
                 >
-                  {meta.label}
+                  {tab.label}
                 </span>
                 <span
                   className={`text-[9px] tabular-nums transition-colors ${
                     selected ? 'text-[#A6A29A]' : 'text-[#C8C5BD]'
                   }`}
                 >
-                  {stats.done}/{stats.total}
+                  {tab.badge}
                 </span>
               </span>
               {/* track */}
               <span className="absolute left-0 right-0 bottom-0 h-[2px] rounded bg-[#EFEBE3]" />
-              {/* progress fill = semantic color to completion % */}
+              {/* fill = semantic color; width is progress (Today) or full (Practice) */}
               <span
                 className="absolute left-0 bottom-0 h-[2px] rounded transition-[width,opacity] duration-300"
                 style={{
-                  width: `${stats.pct}%`,
-                  background: meta.color,
+                  width: `${tab.fillPct}%`,
+                  background: tab.color,
                   opacity: selected ? 1 : 0.5,
                 }}
               />
@@ -76,9 +78,9 @@ export default function TodayTabBar({
       {active && (
         <p
           className="font-serif italic text-xs pt-4 pb-0.5 tracking-[0.02em] transition-colors"
-          style={{ color: active.meta.color }}
+          style={{ color: active.color }}
         >
-          {active.meta.sub}
+          {active.sub}
         </p>
       )}
     </div>
