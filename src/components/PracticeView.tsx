@@ -110,6 +110,66 @@ function CategorySection({
 
   return (
     <div>
+      {/* Add control pinned to the top so it stays reachable no matter how long
+          the list grows. New items still append to the end of the list. */}
+      <AnimatePresence mode="wait" initial={false}>
+        {isAdding ? (
+          <motion.form
+            key="adding"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            transition={{ duration: 0.2 }}
+            onSubmit={handleAdd}
+            className="flex items-center py-4 border-b border-[#2C2C2C]"
+          >
+            <span className="w-8 shrink-0 flex items-center justify-center">
+              <Plus className="w-3.5 h-3.5 stroke-[2] text-[#C4C1B9]" />
+            </span>
+            <input
+              autoFocus
+              type="text"
+              placeholder={CATEGORY_PLACEHOLDER[category]}
+              value={newTitle}
+              onChange={e => setNewTitle(e.target.value)}
+              onBlur={() => {
+                if (submittedRef.current) return;
+                if (newTitle.trim()) {
+                  submittedRef.current = true;
+                  const t = newTitle.trim();
+                  setNewTitle('');
+                  setIsAdding(false);
+                  store.addMicroHabit(t, category);
+                } else {
+                  setIsAdding(false);
+                }
+              }}
+              className={`flex-1 bg-transparent text-[15px] font-serif placeholder:text-[#C4C1B9] placeholder:italic focus:outline-none ${
+                isAffirmation ? 'italic' : ''
+              }`}
+            />
+          </motion.form>
+        ) : (
+          <motion.button
+            key="add-btn"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            transition={{ duration: 0.2 }}
+            onClick={() => {
+              submittedRef.current = false;
+              setIsAdding(true);
+            }}
+            className="w-full flex items-center py-3 text-[11px] uppercase tracking-[0.2em] text-[#A09E9A] hover:text-[#2C2C2C] transition-colors"
+          >
+            <span className="w-8 shrink-0 flex items-center justify-center">
+              <Plus className="w-3 h-3 stroke-[2]" />
+            </span>
+            <span>{CATEGORY_ADD_LABEL[category]}</span>
+          </motion.button>
+        )}
+      </AnimatePresence>
+
       <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
         <SortableContext items={sortableIds} strategy={verticalListSortingStrategy}>
           <AnimatePresence mode="popLayout">
@@ -167,61 +227,9 @@ function CategorySection({
                 </motion.div>
               ))
             )}
-
-            {isAdding && (
-              <motion.form
-                key="adding"
-                initial={{ opacity: 0, height: 0 }}
-                animate={{ opacity: 1, height: 'auto' }}
-                exit={{ opacity: 0, height: 0 }}
-                onSubmit={handleAdd}
-                className="flex items-center gap-4 py-4 border-b border-[#2C2C2C]"
-              >
-                <span className="text-[10px] font-medium text-[#C4C1B9] w-8 tracking-widest text-center">
-                  {(habits.length + 1).toString().padStart(2, '0')}
-                </span>
-                <input
-                  autoFocus
-                  type="text"
-                  placeholder={CATEGORY_PLACEHOLDER[category]}
-                  value={newTitle}
-                  onChange={e => setNewTitle(e.target.value)}
-                  onBlur={() => {
-                    if (submittedRef.current) return;
-                    if (newTitle.trim()) {
-                      submittedRef.current = true;
-                      const t = newTitle.trim();
-                      setNewTitle('');
-                      setIsAdding(false);
-                      store.addMicroHabit(t, category);
-                    } else {
-                      setIsAdding(false);
-                    }
-                  }}
-                  className={`flex-1 bg-transparent text-[15px] font-serif placeholder:text-[#C4C1B9] placeholder:italic focus:outline-none ${
-                    isAffirmation ? 'italic' : ''
-                  }`}
-                />
-              </motion.form>
-            )}
           </AnimatePresence>
         </SortableContext>
       </DndContext>
-
-      {!isAdding && (
-        <motion.button
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1 }}
-          onClick={() => {
-            submittedRef.current = false;
-            setIsAdding(true);
-          }}
-          className="mt-3 flex items-center gap-2 text-[11px] uppercase tracking-[0.2em] text-[#A09E9A] hover:text-[#2C2C2C] transition-colors"
-        >
-          <Plus className="w-3 h-3 stroke-[2]" />
-          <span>{CATEGORY_ADD_LABEL[category]}</span>
-        </motion.button>
-      )}
     </div>
   );
 }

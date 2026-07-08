@@ -320,6 +320,14 @@ test.describe('Demo mode (logged-in UI surrogate)', () => {
     await expect(page.getByText('I am enough.')).toBeVisible();
     await expect(page.getByText('用行动构建自信')).toHaveCount(0);
 
+    // The add control sits at the TOP of the list (reachable without scrolling
+    // a long list), i.e. above the first item.
+    const addBtnBox = await page
+      .getByRole('button', { name: /Add Affirmation/i })
+      .boundingBox();
+    const firstItemBox = await page.getByText('I am enough.').boundingBox();
+    expect(addBtnBox!.y).toBeLessThan(firstItemBox!.y);
+
     // Tap Mindsets → its definitions render, add-affirmation button gone.
     await page.getByRole('tab', { name: /Mindsets/ }).click();
     await expect(page.getByText('用行动构建自信')).toBeVisible();
