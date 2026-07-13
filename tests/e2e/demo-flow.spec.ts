@@ -109,6 +109,63 @@ test.describe('Demo mode (logged-in UI surrogate)', () => {
     await expect(page.getByText(/Belief/)).toBeVisible();
   });
 
+  test('Daily reset: tab memory from a previous day falls back to Affirmations', async ({ page }) => {
+    // Seed a legacy day-less value (pre-upgrade format) — must read as stale.
+    await page.addInitScript(() => {
+      if (!localStorage.getItem('loop.today.tab')) {
+        localStorage.setItem('loop.today.tab', 'habit');
+      }
+    });
+    await page.goto(DEMO_URL);
+    await page.waitForSelector('h1', { timeout: 15000 });
+    await expect(
+      page.getByRole('tab', { name: /Affirmations/ }),
+    ).toHaveAttribute('aria-selected', 'true');
+    await expect(page.getByText(/Identity/)).toBeVisible();
+
+    // Seed yesterday's value in the current format and reload — same fallback.
+    await page.evaluate(() => {
+      localStorage.setItem(
+        'loop.today.tab',
+        JSON.stringify({ tab: 'habit', day: '2000-01-01' }),
+      );
+    });
+    await page.reload();
+    await page.waitForSelector('h1', { timeout: 15000 });
+    await expect(
+      page.getByRole('tab', { name: /Affirmations/ }),
+    ).toHaveAttribute('aria-selected', 'true');
+    await expect(page.getByText(/Identity/)).toBeVisible();
+  });
+
+  test('Crossing midnight while Today stays mounted snaps back to Affirmations', async ({ page }) => {
+    // Resumed-PWA path: the view is NOT remounted overnight; the next render
+    // after the date changes must pull the tab back to Affirm.
+    // setFixedTime fakes Date only (timers/rAF keep running, so animations
+    // and the demo store behave normally).
+    await page.clock.setFixedTime(new Date('2026-07-13T20:00:00'));
+    await page.goto(DEMO_URL);
+    await page.waitForSelector('h1', { timeout: 15000 });
+
+    await page.getByRole('tab', { name: /Habits/ }).click();
+    await expect(page.getByRole('tab', { name: /Habits/ })).toHaveAttribute(
+      'aria-selected',
+      'true',
+    );
+
+    // Overnight: the date moves on; the next state-driven render recomputes
+    // `today` (prod: the daily-reset snapshot). A viewport resize is the
+    // deterministic trigger here — useFillHeight setStates on resize; a task
+    // toggle click proved flaky against the pager's window pointer listeners.
+    await page.clock.setFixedTime(new Date('2026-07-14T08:00:00'));
+    await page.setViewportSize({ width: 1280, height: 620 });
+
+    await expect(
+      page.getByRole('tab', { name: /Affirmations/ }),
+    ).toHaveAttribute('aria-selected', 'true', { timeout: 3000 });
+    await expect(page.getByText(/Identity/)).toBeVisible();
+  });
+
   test('Returning to Today lands at the top, not scrolled into blank space', async ({ page }) => {
     // Regression: Today used to collapse to content height and let the window
     // scroll, so returning from a scrolled tall tab retained that scroll and

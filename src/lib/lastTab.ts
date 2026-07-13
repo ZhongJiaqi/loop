@@ -35,3 +35,46 @@ export function writeLastTab(
     /* localStorage unavailable — nothing to persist */
   }
 }
+
+/**
+ * Day-scoped variants for the Today page: the remembered tab only survives
+ * within the same day, so each daily reset lands back on the first tab
+ * (Affirm). Stored as JSON `{tab, day}`; a legacy day-less value, another
+ * day's value, or corrupted data all fall back to the default.
+ */
+export function readLastTabForDay(
+  day: string,
+  storageKey: string = LAST_TAB_STORAGE_KEY,
+): TodayTabKey {
+  try {
+    const stored = localStorage.getItem(storageKey);
+    if (stored) {
+      const parsed = JSON.parse(stored) as { tab?: unknown; day?: unknown };
+      if (
+        parsed !== null &&
+        typeof parsed === 'object' &&
+        parsed.day === day &&
+        typeof parsed.tab === 'string' &&
+        VALID_KEYS.has(parsed.tab)
+      ) {
+        return parsed.tab as TodayTabKey;
+      }
+    }
+  } catch {
+    /* legacy plain string / malformed JSON / localStorage unavailable */
+  }
+  return DEFAULT_TAB;
+}
+
+/** Persist the last-viewed sub-tab together with the day it belongs to. */
+export function writeLastTabForDay(
+  key: TodayTabKey,
+  day: string,
+  storageKey: string = LAST_TAB_STORAGE_KEY,
+): void {
+  try {
+    localStorage.setItem(storageKey, JSON.stringify({ tab: key, day }));
+  } catch {
+    /* localStorage unavailable — nothing to persist */
+  }
+}

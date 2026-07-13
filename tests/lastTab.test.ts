@@ -3,6 +3,8 @@ import { describe, it, expect, beforeEach } from 'vitest';
 import {
   readLastTab,
   writeLastTab,
+  readLastTabForDay,
+  writeLastTabForDay,
   LAST_TAB_STORAGE_KEY,
   PRACTICE_TAB_STORAGE_KEY,
 } from '../src/lib/lastTab';
@@ -65,5 +67,47 @@ describe('lastTab persistence', () => {
     writeLastTab('habit', PRACTICE_TAB_STORAGE_KEY); // Practice
     expect(readLastTab()).toBe('mindset');
     expect(readLastTab(PRACTICE_TAB_STORAGE_KEY)).toBe('habit');
+  });
+});
+
+describe('day-scoped lastTab (Today defaults back to Affirm each new day)', () => {
+  beforeEach(() => {
+    installMemoryStorage();
+  });
+
+  it('remembers the tab within the same day', () => {
+    writeLastTabForDay('mindset', '2026-07-13');
+    expect(readLastTabForDay('2026-07-13')).toBe('mindset');
+  });
+
+  it('falls back to affirmation when the stored day differs (daily reset)', () => {
+    writeLastTabForDay('habit', '2026-07-12');
+    expect(readLastTabForDay('2026-07-13')).toBe('affirmation');
+  });
+
+  it('defaults to affirmation when nothing is stored', () => {
+    expect(readLastTabForDay('2026-07-13')).toBe('affirmation');
+  });
+
+  it('treats a legacy day-less value as stale and defaults to affirmation', () => {
+    localStorage.setItem(LAST_TAB_STORAGE_KEY, 'mindset');
+    expect(readLastTabForDay('2026-07-13')).toBe('affirmation');
+  });
+
+  it('ignores malformed JSON and unknown tab values', () => {
+    localStorage.setItem(LAST_TAB_STORAGE_KEY, '{broken');
+    expect(readLastTabForDay('2026-07-13')).toBe('affirmation');
+    localStorage.setItem(
+      LAST_TAB_STORAGE_KEY,
+      JSON.stringify({ tab: 'garbage', day: '2026-07-13' }),
+    );
+    expect(readLastTabForDay('2026-07-13')).toBe('affirmation');
+  });
+
+  it('leaves the Practice key (day-free memory) untouched', () => {
+    writeLastTab('habit', PRACTICE_TAB_STORAGE_KEY);
+    writeLastTabForDay('mindset', '2026-07-13');
+    expect(readLastTab(PRACTICE_TAB_STORAGE_KEY)).toBe('habit');
+    expect(readLastTabForDay('2026-07-13')).toBe('mindset');
   });
 });

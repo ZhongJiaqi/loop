@@ -11,7 +11,7 @@ import type { Options as ConfettiOptions } from "canvas-confetti";
 import { Task, MicroHabit, MicroHabitCategory } from "../types";
 import { excludeOrphanTasks } from "../lib/orphanTasks";
 import { TODAY_TABS, moduleStats, type TodayTabKey } from "../lib/todayTabs";
-import { readLastTab, writeLastTab } from "../lib/lastTab";
+import { readLastTabForDay, writeLastTabForDay } from "../lib/lastTab";
 import { useFillHeight } from "../lib/fillHeight";
 import ModuleTabBar, { type ModuleTab } from "./ModuleTabBar";
 import TodayPager from "./TodayPager";
@@ -397,16 +397,28 @@ export default function TodayView({ store }: TodayViewProps) {
 
   // ── Sub-tab state (BE → THINK → DO) ──────────────────────────────────────
   // Only one module's list shows at a time; tab click or horizontal swipe moves
-  // between them. The last-viewed tab is remembered across sessions.
+  // between them. The last-viewed tab is remembered within the same day only —
+  // each daily reset lands back on the first tab (Affirm).
   const [tabIndex, setTabIndex] = useState<number>(() => {
-    const i = TODAY_TABS.findIndex((t) => t.key === readLastTab());
+    const i = TODAY_TABS.findIndex((t) => t.key === readLastTabForDay(today));
     return i === -1 ? 0 : i;
   });
-  const handleSelect = useCallback((i: number) => {
-    setTabIndex(i);
-    const key = TODAY_TABS[i]?.key;
-    if (key) writeLastTab(key);
-  }, []);
+  const handleSelect = useCallback(
+    (i: number) => {
+      setTabIndex(i);
+      const key = TODAY_TABS[i]?.key;
+      if (key) writeLastTabForDay(key, today);
+    },
+    [today],
+  );
+  // 跨天兜底：PWA 常驻内存跨夜 resume 时本组件不会重新挂载，靠这里在日期变化
+  // 后的首次渲染把 tab 拉回 AFFIRM（同一天内 dayRef 恒等于 today，不触发）。
+  const dayRef = useRef(today);
+  useEffect(() => {
+    if (dayRef.current === today) return;
+    dayRef.current = today;
+    setTabIndex(0); // TODAY_TABS[0] = Affirmations
+  }, [today]);
 
   const tasksByKey: Record<TodayTabKey, Task[]> = {
     affirmation: affirmations,
