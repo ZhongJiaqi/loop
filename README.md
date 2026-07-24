@@ -20,10 +20,9 @@
 
 ## 效果展示
 
-<!-- TODO(素材): ① Today 三子 tab 手机截图（含进度条）
-     ② 全部完成撒花瞬间截图（/?demo=1&allDone=1 可直接复现）
-     ③ History 热力图 + 名人堂截图
-     ④ 登录页 serif 字标截图（可选） -->
+| Today 每日仪式 | 全部完成 | History 历史 |
+|---|---|---|
+| ![Today](docs/screenshots/today.png) | ![All done](docs/screenshots/alldone.png) | ![History](docs/screenshots/history.png) |
 
 免登录预览：[loop-365.vercel.app/?demo=1](https://loop-365.vercel.app/?demo=1)（内存假数据，不写库）
 
