@@ -20,9 +20,9 @@
 
 ## 效果展示
 
-| Today 每日仪式 | 全部完成 | History 历史 |
-|---|---|---|
-| ![Today](docs/screenshots/today.png) | ![All done](docs/screenshots/alldone.png) | ![History](docs/screenshots/history.png) |
+| 登录 | Today 每日仪式 | 全部完成 | History 历史 |
+|---|---|---|---|
+| ![Login](docs/screenshots/login.jpg) | ![Today](docs/screenshots/today.png) | ![All done](docs/screenshots/alldone.png) | ![History](docs/screenshots/history.png) |
 
 免登录预览：[loop-365.vercel.app/?demo=1](https://loop-365.vercel.app/?demo=1)（内存假数据，不写库）
 
