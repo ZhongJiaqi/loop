@@ -21,7 +21,7 @@
 ## 效果展示
 
 <p>
-  <img src="docs/screenshots/login.jpg" width="24%" alt="登录页">
+  <img src="docs/screenshots/login.png" width="24%" alt="登录页">
   <img src="docs/screenshots/today.png" width="24%" alt="Today 每日仪式">
   <img src="docs/screenshots/alldone.png" width="24%" alt="全部完成">
   <img src="docs/screenshots/history.png" width="24%" alt="History 历史">
