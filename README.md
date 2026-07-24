@@ -20,9 +20,12 @@
 
 ## 效果展示
 
-| 登录 | Today 每日仪式 | 全部完成 | History 历史 |
-|---|---|---|---|
-| ![Login](docs/screenshots/login.jpg) | ![Today](docs/screenshots/today.png) | ![All done](docs/screenshots/alldone.png) | ![History](docs/screenshots/history.png) |
+<p>
+  <img src="docs/screenshots/login.jpg" width="24%" alt="登录页">
+  <img src="docs/screenshots/today.png" width="24%" alt="Today 每日仪式">
+  <img src="docs/screenshots/alldone.png" width="24%" alt="全部完成">
+  <img src="docs/screenshots/history.png" width="24%" alt="History 历史">
+</p>
 
 免登录预览：[loop-365.vercel.app/?demo=1](https://loop-365.vercel.app/?demo=1)（内存假数据，不写库）
 
