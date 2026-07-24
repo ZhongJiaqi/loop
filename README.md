@@ -1,101 +1,58 @@
-# Loop
+# Loop — 每天两分钟的身份练习闭环
 
-[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](./LICENSE)
+> 给想靠微习惯改变自我认知、却总是三分钟热度的人的每日练习 PWA，解决「打卡 App 只管行为、不管你想成为谁」的问题。
 
 > *Thoughts create feelings. Feelings drive actions. Actions shape you.*
 
-肯定语和习惯的每日实践。思想创造感觉，感觉驱动行动，行动塑造你。
+在线体验：[loop-365.vercel.app](https://loop-365.vercel.app) · 免登录试用：[?demo=1](https://loop-365.vercel.app/?demo=1)
 
-A daily-practice PWA built on a **BE → THINK → DO** model: who you are (affirmations), how you think (mindsets), what you do (habits). Behavior-science loop *thoughts → feelings → actions → identity → thoughts*.
+## 为什么做这个
 
-## Features
+习惯打卡 App 的通病是只停在「行为」层：打卡链一断就整个弃用，因为行为没有挂在更深的东西上。行为科学里的身份改变回路是 thoughts → feelings → actions → identity——想法造感受，感受驱动行为，行为反过来塑造身份认同。所以把每日练习按 Dilts 逻辑层次拆成三层：Affirmations（我是谁）、Mindsets（我怎么想）、Habits(我做什么），一天一屏、三个子 tab 过完，链条闭合才算完成。这是给我自己用的产品：每天早上打开，过一遍，两分钟。
 
-- **Today** - One ritual flow per day in three sections:
-  - **Affirmations** (gold ✨, *I am…*) — identity-level statements (情感锚定)
-  - **Mindsets** (misty blue ripple, *I choose / I believe…*) — mental models that guide action (认知工具)
-  - **Habits** (sage green, line-through on complete) — concrete daily actions
-- **Practice** - Manage all three: each section has its own CRUD + drag-to-reorder
-- **Mood** - A "stop and notice" space alongside the do-loop. Pick from 9 emotional buckets (David Hawkins energy-level scale) and 450+ feeling words to name what's here. Reverse aesthetic to Practice — italic serif tagline `See your feelings.`, list-style buckets in a muted watercolor palette
-- **History** - Calendar heatmap, streak counter, weekly chart, with All / Habits / Mindsets / Affirmations filter
-- **21-Day Hall of Fame** - Habits reaching 21 completed days enter the Hall. Affirmations and Mindsets are mental-anchoring rituals, not behavior-formation goals — they don't enter the Hall by design
-- **PWA** - Installable on mobile, works offline-first
-- **Swipe Actions** - Left-swipe to edit/delete on mobile
+## 核心功能
 
-## Tech Stack
+- ✅ Today 每日仪式 —— AFFIRM / MINDSET / HABITS 三个子 tab 滑动切换，每段独立进度条，全部完成撒花；每天强制从 Affirmations 开始（仪式从身份宣言起步）
+- ✅ 定义一次，每天自动生成 —— 练习项建一次，每天自动物化成当日任务，确定性 ID 保证跨设备不重复、不丢已打的勾
+- ✅ 历史热力图 + 21 天名人堂 —— 日历热图、连击统计、周趋势；坚持满 21 天的习惯进名人堂（肯定语/心态是锚定仪式，特意不进堂）
+- ✅ 离线可用的 PWA —— 加到主屏当 App 用，断网照常打卡、恢复自动同步；每晚 22:00 对未完成任务发 Web Push 提醒
+- ✅ Google 登录多端实时同步 —— 手机勾完，电脑立即可见
 
-- **Frontend**: React 19, TypeScript, Tailwind CSS 4, Motion (animations)
-- **Backend**: Firebase Authentication (Google Sign-in) + Firestore (real-time database)
-- **Hosting**: Vercel
-- **PWA**: vite-plugin-pwa (service worker + manifest)
-- **Testing**: Vitest (unit) + Playwright (e2e)
+## 效果展示
 
-## Getting Started
+<!-- TODO(素材): ① Today 三子 tab 手机截图（含进度条）
+     ② 全部完成撒花瞬间截图（/?demo=1&allDone=1 可直接复现）
+     ③ History 热力图 + 名人堂截图
+     ④ 登录页 serif 字标截图（可选） -->
 
-**Prerequisites:** Node.js 18+
+免登录预览：[loop-365.vercel.app/?demo=1](https://loop-365.vercel.app/?demo=1)（内存假数据，不写库）
+
+## 快速开始
 
 ```bash
-# Install dependencies
 npm install
-
-# Run locally
-npm run dev
-
-# Run tests
-npm run test:all
-
-# Build for production
-npm run build
+npm run dev     # http://localhost:3000/?demo=1 免 Firebase 配置直接看完整 UI
 ```
 
-## Deployment
+Firebase 客户端配置随仓库提供（`firebase-applet-config.json`，Web 端配置本就是公开的，数据安全由 Firestore rules 的 owner-only 校验守护）。自部署要换成自己的 Firebase 项目配置，并在 Firebase Console 把部署域名加进 Auth 授权域名。唯一的环境变量 `VITE_FIREBASE_VAPID_KEY`（Web Push 公钥）只有推送提醒功能需要。
 
-Deployed on Vercel at https://loop-365.vercel.app
+测试：`npm run test`（144 个单测）· `npm run test:e2e`（Playwright）。
 
-```bash
-# Deploy to production
-vercel --prod
-```
+## 技术方案（简）
 
-After deployment, add the Vercel domain to Firebase Console > Authentication > Authorized domains.
+React 19 + Vite + Tailwind 4 + Motion；Firebase Auth / Firestore（IndexedDB 离线缓存 + onSnapshot 实时监听，无 Redux/Zustand）；Cloud Functions 定时发 Web Push；vite-plugin-pwa autoUpdate。数据流：练习定义（microHabits）与当日任务（tasks）两个集合实时驱动 UI；「每日重置 effect」是任务生成的唯一入口；History 页全部由客户端纯计算，不落冗余数据。
 
-## Project Structure
+## 设计取舍
 
-```
-src/
-├── App.tsx                # Main app: auth + 4-tab navigation
-├── useStore.ts            # Practices state (Affirmation/Mindset/Habit): Firestore CRUD + daily task creation
-├── useMoodStore.ts        # Mood state: independent hook, separate Firestore collection
-├── useDemoStore.ts        # In-memory store for ?demo=1 mode
-├── firebase.ts            # Firebase initialization
-├── types.ts               # TypeScript interfaces (incl. MoodEntry / MoodBucket)
-├── lib/
-│   ├── moods.ts           # 9-bucket canonical data (Hawkins scale) + 450+ word dictionary
-│   ├── moodFormat.ts      # Date grouping + relative day labels
-│   └── ...
-├── components/
-│   ├── TodayView.tsx      # Daily task completion + per-section confetti (3 sections)
-│   ├── PracticeView.tsx   # Affirmation/Mindset/Habit CRUD + drag-to-reorder
-│   ├── MoodView.tsx       # Mood feed grouped by day, lazy-loaded
-│   ├── MoodPickerSheet.tsx # Bucket list + word cloud, rendered via createPortal
-│   ├── MoodEntryRow.tsx   # Single mood entry + SwipeActions wrap
-│   ├── HistoryView.tsx    # Calendar heatmap, streaks, hall of fame
-│   └── SwipeActions.tsx   # Shared swipe-to-reveal gesture component
-tests/
-├── moods.test.ts          # MOOD_BUCKETS shape + bucketById + date format unit tests
-├── useMoodStore.test.ts   # Mood payload helper unit tests
-├── useStore.test.ts       # Task creation logic
-└── e2e/
-    ├── habits.spec.ts     # UI / PWA / responsive
-    ├── demo-flow.spec.ts  # Login surrogate + interaction flows
-    └── mood.spec.ts       # Mood tab end-to-end + portal regression
-```
+1. 从 window 滚动改为有界容器内滚动（`be0ab5e`）：三 tab 横向 pager 与 window 滚动互相污染滚动位置，切回 Today 会停在陈旧位置；代价是要用 `useLayoutEffect` 自己量可用高度，为此抽了纯函数并配单测。
+2. 子 tab 记忆「按天生效」而非永久记忆（`ecabc8d`）：当天内切走再回来保持原位，但新的一天强制回到 Affirmations——练习顺序是产品立场，不完全交给用户惯性；代价是 localStorage 要存 `{tab, day}` 并处理 PWA 跨夜常驻的边界。
+3. Mood 情绪模块整体隐藏而非删除（2026-07-03）：做完上线后试用发现打断每日主仪式的节奏，先撤出导航、代码与独立数据集合完整保留，试用期后再定去留；代价是包里躺着一块暂不可见的功能。
 
-## Install as App
+## Roadmap
 
-**iPhone**: Safari > Share > Add to Home Screen
-
-**Android**: Chrome > Menu > Install App
+- [ ] Mood 模块去留拍板（试用性下线中，代码完整保留，数据结构独立）
+- [ ] 清理 Becoming → Loop 更名的迁移遗留（`LEGACY_HAD_SESSION_KEY` 的 30 天窗口已过）
 
 ## License
 
-[MIT](./LICENSE) © 2026 Jiaqi Zhong
+MIT — 见 [LICENSE](./LICENSE)
