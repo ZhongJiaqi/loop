@@ -59,11 +59,10 @@ React 19 + Vite + Tailwind 4 + Motion；Firebase Auth / Firestore（IndexedDB �
 
 1. 从 window 滚动改为有界容器内滚动（`be0ab5e`）：三 tab 横向 pager 与 window 滚动互相污染滚动位置，切回 Today 会停在陈旧位置；代价是要用 `useLayoutEffect` 自己量可用高度，为此抽了纯函数并配单测。
 2. 子 tab 记忆「按天生效」而非永久记忆（`ecabc8d`）：当天内切走再回来保持原位，但新的一天强制回到 Affirmations——练习顺序是产品立场，不完全交给用户惯性；代价是 localStorage 要存 `{tab, day}` 并处理 PWA 跨夜常驻的边界。
-3. Mood 情绪模块整体隐藏而非删除（2026-07-03）：做完上线后试用发现打断每日主仪式的节奏，先撤出导航、代码与独立数据集合完整保留，试用期后再定去留；代价是包里躺着一块暂不可见的功能。
+3. Mood 情绪模块先隐藏试用、再整体移除（2026-07-03 隐藏 → 2026-07-28 移除）：做完上线后试用发现打断每日主仪式的节奏，先撤出导航保留代码观察，确认不回归后才删干净——功能下线也走灰度；数据集合与安全规则保留在 Firestore，老记录不丢，代码可从 git 历史找回。
 
 ## Roadmap
 
-- [ ] Mood 模块去留拍板（试用性下线中，代码完整保留，数据结构独立）
 - [ ] 清理 Becoming → Loop 更名的迁移遗留（`LEGACY_HAD_SESSION_KEY` 的 30 天窗口已过）
 
 ## License

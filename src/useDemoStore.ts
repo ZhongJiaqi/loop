@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { format } from 'date-fns';
-import { MicroHabit, Task, MicroHabitCategory, MoodBucketId, MoodEntry } from './types';
+import { MicroHabit, Task, MicroHabitCategory } from './types';
 import { nextSortIndex, reorderPlan } from './lib/reorder';
 
 const DEMO_USER_ID = 'demo-user';
@@ -79,39 +79,11 @@ export function useDemoStore() {
   );
   const [microHabits, setMicroHabits] = useState<MicroHabit[]>(initHabits);
   const [tasks, setTasks] = useState<Task[]>(initTasks);
-  const [moods, setMoods] = useState<MoodEntry[]>([]);
 
   const today = format(new Date(), 'yyyy-MM-dd');
 
   return {
     data: { microHabits, tasks, loaded: true },
-    moods,
-
-    addMood: async (bucket: MoodBucketId, words: string[]): Promise<void> => {
-      const entry: MoodEntry = {
-        id: `mood-${Date.now()}-${Math.floor(Math.random() * 1e6)}`,
-        userId: DEMO_USER_ID,
-        bucket,
-        words,
-        createdAt: new Date().toISOString(),
-      };
-      setMoods((prev) => [entry, ...prev]);
-    },
-
-    updateMood: async (
-      id: string,
-      patch: Partial<Pick<MoodEntry, 'bucket' | 'words'>>,
-    ): Promise<void> => {
-      setMoods((prev) =>
-        prev.map((m) =>
-          m.id === id ? { ...m, ...patch, updatedAt: new Date().toISOString() } : m,
-        ),
-      );
-    },
-
-    deleteMood: async (id: string): Promise<void> => {
-      setMoods((prev) => prev.filter((m) => m.id !== id));
-    },
 
     toggleTaskCompletion: (id: string) => {
       setTasks(prev => prev.map(t => (t.id === id ? { ...t, completed: !t.completed } : t)));

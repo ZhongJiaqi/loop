@@ -22,10 +22,10 @@ Single-page React 19 PWA with Firebase backend, deployed on Vercel.
 
 - **Auth**: Firebase Auth (Google Sign-in) → `App.tsx` passes `user.uid` to `useStore()`
 - **State**: `useStore.ts` is a custom hook that manages all data via Firestore `onSnapshot` real-time listeners — no Redux/Zustand
-- **Three active Firestore collections** per user (under `users/{userId}/`):
+- **Two active Firestore collections** per user (under `users/{userId}/`):
   - `microHabits` — practice definitions (Affirmations + Habits), `category` field discriminates; `sortIndex` field drives Practice-page drag-to-reorder + Today render order
   - `tasks` — daily task instances (deterministic ID `{habitId}_{date}`), one task per active microHabit per day
-  - `moods` — Mood entries (Hawkins-scale bucket + word list + createdAt). Independent hook `useMoodStore` + zero shared visual components with Affirmation/Habit — Mood is designed as a future spin-off product.
+  - ~~`moods`~~ — REMOVED (7-28). Mood 模块试用期（6-08 上线 → 7-03 隐藏）后拍板整体下线，前端代码全部删除（可从 git 历史找回）。老 docs 留在 Firestore，`firestore.rules` 保留 owner-only 访问，前端不再读写
   - ~~`habitPool`~~ — DEPRECATED (5-25). Hall of Fame is view-computed by `HistoryView` from microHabits+tasks. Old docs in Firestore retained, `firestore.rules` keeps owner-only access. Frontend no longer reads or writes
 
 **⚠️ firestore.rules deploy gotcha**: any change to `firestore.rules` requires `firebase deploy --only firestore` — vercel/git push does NOT touch Firestore rules. Has been forgotten twice (5-03 task.type refactor → `08b13ac` rescue; 6-08 Mood Phase 1 → `97147eb` rescue). Add to DoD checklist for any rules-touching feature.
@@ -43,16 +43,13 @@ Task creation for habits is centralized in a single `useEffect` in `useStore.ts`
 
 ### UI Structure
 
-`App.tsx` has **three visible tabs** (Today / Practice / History) with `AnimatePresence` transitions. Mobile-first layout capped at `max-w-md`. **MOOD tab is temporarily hidden from the bottom nav (2026-07-03, trial period)** — all mood code (`MoodView` / `useMoodStore` / mood render block / `activeTab` 'mood' type) is retained and reachable if the nav button is re-added; slated for either restore or full removal after the trial. Components:
+`App.tsx` has **three visible tabs** (Today / Practice / History) with `AnimatePresence` transitions. Mobile-first layout capped at `max-w-md`. Components:
 
 - `TodayView` — daily tasks split into 3 sub-tabs (Affirmations / Mindsets / Habits, the BE→THINK→DO model). Renders `TodayTabBar` + `TodayPager`: tap a tab or horizontal-swipe to switch modules; the last-viewed tab is remembered via `localStorage` key `loop.today.tab` (`src/lib/lastTab.ts`) **within the same day only** — stored as `{tab, day}` JSON, each daily reset defaults back to Affirm (day-scoped read + an in-place effect for the resumed-PWA overnight path). Per-section + whole-page confetti on all-complete stay (mutually exclusive); `allCompleted` spans all 3 modules, not just the active tab. Mindset accent is Dusk 藕荷 `#B48AA0` (was 雾蓝 `#7B95B5`)
 - `TodayTabBar` — B3 sub-tab bar: short uppercase label + done/total count + semantic-color progress underline (fills to completion %) + italic-serif explanation row. Tab metadata + `moduleStats` live in `src/lib/todayTabs.ts`
 - `TodayPager` — controlled horizontal swipe pager (window-level pointer listeners with axis lock; each page scrolls its own content). Gesture logic covered by e2e / real-browser QA, not jsdom
 - `PracticeView` — CRUD for the 3 modules (Affirmations / Mindsets / Habits), same 3 sub-tab shell as Today via `ModuleTabBar` + `useFillHeight`, but **tap-to-switch only** (no swipe pager — horizontal is reserved for `SwipeActions` row edit/delete). Renders one module at a time; drag-to-reorder via `@dnd-kit` (numeric ordinal `01`/`02` is the drag activator). Remembers its own last tab under `loop.practice.tab` (separate from Today's `loop.today.tab`). Tabs show item count + a full selection underline (no daily-progress bar)
 - `SortableHabitItem` — `useSortable` wrapper around each Practice row
-- `MoodView` — Mood feed grouped by day, opens `MoodPickerSheet` (createPortal'd to body to escape parent motion.div `filter` containing block)
-- `MoodPickerSheet` — list-style 9-bucket picker + word cloud chips (Hawkins energy-level scale, watercolor palette)
-- `MoodEntryRow` — single mood entry wrapped in `SwipeActions` for edit/delete
 - `HistoryView` — calendar heatmap, streak analytics, view-computed 21-Day Hall, DayDetailSheet bottom-sheet
 - `SwipeActions` — mobile swipe-to-reveal for edit/delete (coexists with dnd-kit by yielding to vertical pointer movement)
 - `NetworkStatusBanner` — amber-tone banner driven by `useNetworkStatus` (1.5s debounce on offline, 15s threshold on Firestore unreach)
