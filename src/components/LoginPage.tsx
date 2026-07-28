@@ -77,7 +77,7 @@ export default function LoginPage({ onLogin, loginPending, loginError }: LoginPa
             <p key={i}>
               {i === TAGLINE_LINES.length - 1 ? (
                 <>
-                  Actions shape{' '}
+                  Actions reshape{' '}
                   <span className="text-[#1A1A1A] not-italic font-medium">you</span>.
                 </>
               ) : (
