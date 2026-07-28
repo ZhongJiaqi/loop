@@ -20,7 +20,7 @@ test.describe('Login Page', () => {
     await page.goto(BASE_URL);
     await page.waitForSelector('h1', { timeout: 15000 });
     await expect(
-      page.locator('p').filter({ hasText: 'Thoughts create feelings' })
+      page.locator('p').filter({ hasText: 'Identity shapes thoughts' })
     ).toBeVisible();
   });
 });
@@ -72,7 +72,7 @@ test.describe('PWA', () => {
     expect(themeColor).toBe('#F5F2EC');
 
     const description = await page.locator('meta[name="description"]').getAttribute('content');
-    expect(description).toContain('Thoughts create feelings');
+    expect(description).toContain('Identity shapes thoughts');
 
     const appleCapable = await page.locator('meta[name="apple-mobile-web-app-capable"]').getAttribute('content');
     expect(appleCapable).toBe('yes');

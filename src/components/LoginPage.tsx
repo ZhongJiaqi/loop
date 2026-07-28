@@ -7,9 +7,9 @@ interface LoginPageProps {
 }
 
 const TAGLINE_LINES = [
-  'Thoughts create feelings.',
-  'Feelings drive actions.',
-  'Actions shape you.',
+  'Identity shapes thoughts.',
+  'Thoughts drive actions.',
+  'Actions reshape you.',
 ] as const;
 
 export default function LoginPage({ onLogin, loginPending, loginError }: LoginPageProps) {
@@ -23,8 +23,8 @@ export default function LoginPage({ onLogin, loginPending, loginError }: LoginPa
             Sits directly above the wordmark so brand mark + name read as ONE
             composition, not two disconnected elements. Topology: traversing
             the strip puts you on the "other side" without crossing an edge —
-            visualizes how thoughts ↔ feelings ↔ actions feed back into each
-            other (actions reshape thoughts, not just the reverse). */}
+            visualizes how identity ↔ thoughts ↔ actions feed back into each
+            other (actions reshape identity, not just the reverse). */}
         <motion.svg
           initial={{ opacity: 0, scale: 0.85 }}
           animate={{ opacity: 1, scale: 1 }}
